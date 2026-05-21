@@ -1,0 +1,43 @@
+{
+    "name": "aiarmada/growth",
+    "description": "Revenue experimentation engine for Laravel commerce journeys",
+    "license": "MIT",
+    "type": "library",
+    "keywords": [
+        "laravel",
+        "growth",
+        "experimentation",
+        "revenue"
+    ],
+    "authors": [
+        {
+            "name": "AIArmada",
+            "email": "dev@aiarmada.com"
+        }
+    ],
+    "require": {
+        "aiarmada/commerce-support": "self.version",
+        "aiarmada/signals": "self.version"
+    },
+    "autoload": {
+        "files": [
+            "src/helpers.php"
+        ],
+        "psr-4": {
+            "AIArmada\\Growth\\": "src/",
+            "AIArmada\\Growth\\Database\\Factories\\": "database/factories/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "AIArmada\\Growth\\GrowthServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
