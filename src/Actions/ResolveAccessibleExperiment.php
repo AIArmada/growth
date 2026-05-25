@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AIArmada\Growth\Actions;
 
 use AIArmada\CommerceSupport\Support\OwnerContext;
+use AIArmada\CommerceSupport\Support\OwnerScope;
 use AIArmada\CommerceSupport\Support\OwnerTuple\OwnerTupleColumns;
 use AIArmada\CommerceSupport\Support\OwnerWriteGuard;
 use AIArmada\Growth\Models\Experiment;
@@ -78,10 +79,7 @@ final class ResolveAccessibleExperiment
         /** @var Builder<TrackedProperty> $trackedPropertyQuery */
         $trackedPropertyQuery = TrackedProperty::query();
 
-        if (method_exists(TrackedProperty::class, 'scopeWithoutOwnerScope')) {
-            /** @phpstan-ignore-next-line dynamic Eloquent scope */
-            $trackedPropertyQuery = $trackedPropertyQuery->withoutOwnerScope();
-        }
+        $trackedPropertyQuery = $trackedPropertyQuery->withoutGlobalScope(OwnerScope::class);
 
         $trackedPropertyQuery->whereKey((string) $experiment->tracked_property_id);
 

@@ -234,6 +234,17 @@ The enricher looks for matching identities and assignments from these source fie
 - `cart_id`
 - `metadata.cart_id`
 
+If no matching assignment can be resolved, the action still replays any explicit experiment contexts already embedded on the source model. Current fallback sources include:
+
+- `billing_data.metadata.experiment_contexts`
+- `payment_data.experiment_contexts`
+- `payment_data.metadata.experiment_contexts`
+- `metadata.experiment_contexts`
+- `metadata.payment_data.experiment_contexts`
+- `metadata.billing_data.metadata.experiment_contexts`
+
+Assignment-derived context remains the primary source when available, and explicit contexts are merged by `experiment_id` so downstream Signals events still carry a stable `experiment_contexts` payload.
+
 The action adds keys such as:
 
 - `experiment_id`

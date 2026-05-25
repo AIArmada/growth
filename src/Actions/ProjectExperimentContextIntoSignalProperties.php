@@ -36,7 +36,7 @@ final class ProjectExperimentContextIntoSignalProperties
         $assignments = $this->resolveAssignments($source, $trackedProperty);
 
         if ($assignments->isEmpty()) {
-            return $properties;
+            return $this->mergeExperimentContexts($source, $properties);
         }
 
         $contexts = collect($this->buildExperimentSignalProperties->contextsForAssignments($assignments))
@@ -45,20 +45,43 @@ final class ProjectExperimentContextIntoSignalProperties
             ->all();
 
         if ($contexts === []) {
-            return $properties;
+            return $this->mergeExperimentContexts($source, $properties);
         }
 
         /** @var array<string, string> $primaryContext */
         $primaryContext = $contexts[0];
 
-        $enrichedContext = array_filter(
+        $enrichedContext = array_merge($primaryContext, [
+            'experiment_contexts' => $contexts,
+        ]);
+
+        return $this->mergeExperimentContexts($source, array_merge($properties, $enrichedContext));
+    }
+
+    /**
+     * @param  array<string, mixed>  $properties
+     * @return array<string, mixed>
+     */
+    private function mergeExperimentContexts(Model $source, array $properties): array
+    {
+        $contexts = $this->mergeContexts(
+            $this->normalizeContexts($properties['experiment_contexts'] ?? null),
+            $this->normalizeContexts($properties),
+            $this->explicitContexts($source),
+        );
+
+        if ($contexts === []) {
+            return $properties;
+        }
+
+        $primaryContext = $contexts[0];
+
+        return array_merge(
+            $properties,
             array_merge($primaryContext, [
                 'experiment_contexts' => $contexts,
             ]),
-            static fn (mixed $value): bool => $value !== null,
         );
-
-        return array_merge($properties, $enrichedContext);
     }
 
     /**
@@ -193,6 +216,21 @@ final class ProjectExperimentContextIntoSignalProperties
         );
     }
 
+    /**
+     * @return list<array<string, string>>
+     */
+    private function explicitContexts(Model $source): array
+    {
+        return $this->mergeContexts(
+            $this->normalizeContexts(data_get($this->attributeValue($source, 'billing_data'), 'metadata.experiment_contexts')),
+            $this->normalizeContexts(data_get($this->attributeValue($source, 'payment_data'), 'experiment_contexts')),
+            $this->normalizeContexts(data_get($this->attributeValue($source, 'payment_data'), 'metadata.experiment_contexts')),
+            $this->normalizeContexts(data_get($this->attributeValue($source, 'metadata'), 'experiment_contexts')),
+            $this->normalizeContexts(data_get($this->attributeValue($source, 'metadata'), 'payment_data.experiment_contexts')),
+            $this->normalizeContexts(data_get($this->attributeValue($source, 'metadata'), 'billing_data.metadata.experiment_contexts')),
+        );
+    }
+
     private function stringValue(mixed $value): ?string
     {
         if (! is_scalar($value) || $value === '') {
@@ -209,6 +247,90 @@ final class ProjectExperimentContextIntoSignalProperties
     private function uniqueStrings(array $values): array
     {
         return array_values(array_unique(array_filter($values, static fn (?string $value): bool => $value !== null && $value !== '')));
+    }
+
+    /**
+     * @return list<array<string, string>>
+     */
+    private function normalizeContexts(mixed $contexts): array
+    {
+        if (! is_array($contexts)) {
+            return [];
+        }
+
+        $normalizedContext = $this->normalizeContext($contexts);
+
+        if ($normalizedContext !== null) {
+            return [$normalizedContext];
+        }
+
+        $normalizedContexts = [];
+
+        foreach ($contexts as $context) {
+            $normalizedContext = $this->normalizeContext($context);
+
+            if ($normalizedContext === null) {
+                continue;
+            }
+
+            $normalizedContexts[] = $normalizedContext;
+        }
+
+        return $normalizedContexts;
+    }
+
+    /**
+     * @return array<string, string>|null
+     */
+    private function normalizeContext(mixed $context): ?array
+    {
+        if (! is_array($context)) {
+            return null;
+        }
+
+        $experimentId = data_get($context, 'experiment_id');
+        $variantId = data_get($context, 'variant_id');
+
+        if (! is_scalar($experimentId) || ! is_scalar($variantId)) {
+            return null;
+        }
+
+        $normalizedContext = [
+            'experiment_id' => (string) $experimentId,
+            'variant_id' => (string) $variantId,
+        ];
+
+        foreach (['experiment_slug', 'variant_code', 'assignment_id', 'module_type'] as $key) {
+            $value = data_get($context, $key);
+
+            if (! is_scalar($value) || (string) $value === '') {
+                continue;
+            }
+
+            $normalizedContext[$key] = (string) $value;
+        }
+
+        return $normalizedContext;
+    }
+
+    /**
+     * @param  list<array<string, string>>  ...$groups
+     * @return list<array<string, string>>
+     */
+    private function mergeContexts(array ...$groups): array
+    {
+        $mergedContexts = [];
+
+        foreach ($groups as $group) {
+            foreach ($group as $context) {
+                $mergedContexts[$context['experiment_id']] = array_merge(
+                    $mergedContexts[$context['experiment_id']] ?? [],
+                    $context,
+                );
+            }
+        }
+
+        return array_values($mergedContexts);
     }
 
     private function resolveTrackedPropertyForCurrentScope(TrackedProperty $trackedProperty): TrackedProperty

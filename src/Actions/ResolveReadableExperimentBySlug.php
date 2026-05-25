@@ -6,6 +6,7 @@ namespace AIArmada\Growth\Actions;
 
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\CommerceSupport\Support\OwnerQuery;
+use AIArmada\CommerceSupport\Support\OwnerScope;
 use AIArmada\CommerceSupport\Support\OwnerTuple\OwnerTupleColumns;
 use AIArmada\Growth\Enums\ExperimentStatus;
 use AIArmada\Growth\Models\Experiment;
@@ -34,7 +35,7 @@ final class ResolveReadableExperimentBySlug
             OwnerContext::assertResolvedOrExplicitGlobal($owner, $message);
 
             $resolvedExperiment = OwnerQuery::applyToEloquentBuilder(
-                Experiment::query()->withoutOwnerScope(),
+                Experiment::query()->withoutGlobalScope(OwnerScope::class),
                 $owner,
                 $config->includeGlobal,
                 $config->ownerTypeColumn,
@@ -99,10 +100,7 @@ final class ResolveReadableExperimentBySlug
         /** @var Builder<TrackedProperty> $trackedPropertyQuery */
         $trackedPropertyQuery = TrackedProperty::query();
 
-        if (method_exists(TrackedProperty::class, 'scopeWithoutOwnerScope')) {
-            /** @phpstan-ignore-next-line dynamic Eloquent scope */
-            $trackedPropertyQuery = $trackedPropertyQuery->withoutOwnerScope();
-        }
+        $trackedPropertyQuery = $trackedPropertyQuery->withoutGlobalScope(OwnerScope::class);
 
         $trackedPropertyQuery->whereKey((string) $experiment->tracked_property_id);
 

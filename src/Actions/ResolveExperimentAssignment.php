@@ -269,11 +269,8 @@ final class ResolveExperimentAssignment
             }
         }
 
+        /** @var Variant $lastVariant */
         $lastVariant = $variants->last();
-
-        if (! $lastVariant instanceof Variant) {
-            throw new InvalidArgumentException('Unable to resolve an experiment variant.');
-        }
 
         return [$lastVariant, $bucket];
     }
