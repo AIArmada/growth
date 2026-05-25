@@ -45,9 +45,12 @@ The HTTP middleware and Blade directives are **disabled by default**. Turn them 
 
 If you enable the middleware, review the request subject settings under `growth.http.experiment_middleware` as well. The defaults assume:
 
-- anonymous visitors are identified by a cookie named `visitor_id`
-- session matching uses Laravel's current session id
+- anonymous visitors are identified by a cookie named `sig_vid`
+- session matching uses a cookie named `sig_sid`
+- if Signals browser integration is enabled, the resolver reuses the current `SignalsBrowserContext` automatically
 - authenticated users are matched to `SignalIdentity` by `auth_user_type + auth_user_id`, then by `external_id`
+
+If you prefer classic Laravel session ids instead of the Signals browser cookies, set `growth.http.experiment_middleware.session_identifier_source` to `laravel`.
 
 The global `experiment()` helper, `Growth` facade, and Livewire concern do not require extra setup beyond the package booting, but they only return data after an experiment context has been placed on the current request.
 

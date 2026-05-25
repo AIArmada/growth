@@ -11,6 +11,8 @@ use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Support\RequestExperimentSubjects;
 use AIArmada\Signals\Models\SignalIdentity;
 use AIArmada\Signals\Models\SignalSession;
+use AIArmada\Signals\Support\Browser\SignalsBrowserContext;
+use AIArmada\Signals\Support\Browser\SignalsBrowserContextManager;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -22,16 +24,18 @@ final class DefaultRequestExperimentSubjectResolver implements RequestExperiment
 {
     public function __construct(
         private readonly ScopeSignalQueryToOwner $scopeSignalQueryToOwner,
+        private readonly SignalsBrowserContextManager $browserContextManager,
     ) {}
 
     public function resolve(Request $request, Experiment $experiment): RequestExperimentSubjects
     {
         $owner = OwnerContext::fromTypeAndId($experiment->owner_type, $experiment->owner_id);
+        $browserContext = $this->browserContextManager->current($request);
 
         return new RequestExperimentSubjects(
             identity: $this->resolveIdentity($request, $experiment, $owner),
-            session: $this->resolveSession($request, $experiment, $owner),
-            anonymousId: $this->resolveAnonymousId($request),
+            session: $this->resolveSession($request, $experiment, $owner, $browserContext),
+            anonymousId: $this->resolveAnonymousId($request, $browserContext),
         );
     }
 
@@ -69,9 +73,13 @@ final class DefaultRequestExperimentSubjectResolver implements RequestExperiment
         return $identity instanceof SignalIdentity ? $identity : null;
     }
 
-    private function resolveSession(Request $request, Experiment $experiment, ?Model $owner): ?SignalSession
-    {
-        $sessionIdentifier = $this->resolveSessionIdentifier($request);
+    private function resolveSession(
+        Request $request,
+        Experiment $experiment,
+        ?Model $owner,
+        ?SignalsBrowserContext $browserContext,
+    ): ?SignalSession {
+        $sessionIdentifier = $this->resolveSessionIdentifier($request, $browserContext);
 
         if ($sessionIdentifier === null) {
             return null;
@@ -89,8 +97,12 @@ final class DefaultRequestExperimentSubjectResolver implements RequestExperiment
         return $session instanceof SignalSession ? $session : null;
     }
 
-    private function resolveAnonymousId(Request $request): ?string
+    private function resolveAnonymousId(Request $request, ?SignalsBrowserContext $browserContext): ?string
     {
+        if ($browserContext instanceof SignalsBrowserContext) {
+            return $browserContext->visitorId;
+        }
+
         $source = $this->resolveAnonymousIdSource();
         $key = $this->resolveAnonymousIdKey();
 
@@ -100,8 +112,12 @@ final class DefaultRequestExperimentSubjectResolver implements RequestExperiment
         };
     }
 
-    private function resolveSessionIdentifier(Request $request): ?string
+    private function resolveSessionIdentifier(Request $request, ?SignalsBrowserContext $browserContext): ?string
     {
+        if ($browserContext instanceof SignalsBrowserContext) {
+            return $browserContext->sessionId;
+        }
+
         $source = $this->resolveSessionIdentifierSource();
         $key = $source === 'laravel' ? null : $this->resolveSessionIdentifierKey();
 
@@ -181,7 +197,7 @@ final class DefaultRequestExperimentSubjectResolver implements RequestExperiment
 
     private function resolveSessionIdentifierSource(): string
     {
-        $source = mb_strtolower(mb_trim((string) config('growth.http.experiment_middleware.session_identifier_source', 'laravel')));
+        $source = mb_strtolower(mb_trim((string) config('growth.http.experiment_middleware.session_identifier_source', 'cookie')));
 
         if (! in_array($source, ['laravel', 'cookie', 'header'], true)) {
             throw new InvalidArgumentException(sprintf(
@@ -195,7 +211,10 @@ final class DefaultRequestExperimentSubjectResolver implements RequestExperiment
 
     private function resolveAnonymousIdKey(): string
     {
-        $key = mb_trim((string) config('growth.http.experiment_middleware.anonymous_id_key', 'visitor_id'));
+        $key = mb_trim((string) config(
+            'growth.http.experiment_middleware.anonymous_id_key',
+            (string) config('signals.integrations.browser.identifiers.visitor_cookie_name', 'sig_vid'),
+        ));
 
         if ($key === '') {
             throw new InvalidArgumentException(
@@ -208,7 +227,10 @@ final class DefaultRequestExperimentSubjectResolver implements RequestExperiment
 
     private function resolveSessionIdentifierKey(): string
     {
-        $key = mb_trim((string) config('growth.http.experiment_middleware.session_identifier_key', 'X-Session-Identifier'));
+        $key = mb_trim((string) config(
+            'growth.http.experiment_middleware.session_identifier_key',
+            (string) config('signals.integrations.browser.identifiers.session_cookie_name', 'sig_sid'),
+        ));
 
         if ($key === '') {
             throw new InvalidArgumentException(

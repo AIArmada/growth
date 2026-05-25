@@ -58,9 +58,9 @@ return [
         'experiment_middleware' => [
             'subject_resolver' => null,
             'anonymous_id_source' => 'cookie',
-            'anonymous_id_key' => 'visitor_id',
-            'session_identifier_source' => 'laravel',
-            'session_identifier_key' => 'X-Session-Identifier',
+            'anonymous_id_key' => 'sig_vid',
+            'session_identifier_source' => 'cookie',
+            'session_identifier_key' => 'sig_sid',
         ],
     ],
 ];
@@ -187,6 +187,8 @@ The class must implement `AIArmada\Growth\Contracts\RequestExperimentSubjectReso
 
 Leave this as `null` to use the built-in resolver.
 
+When the built-in resolver sees an active Signals browser context, it prefers that context before looking at the configured cookie or header keys manually.
+
 ### `http.experiment_middleware.anonymous_id_source`
 
 Controls where the middleware looks for an anonymous visitor identifier.
@@ -200,21 +202,27 @@ Supported values:
 
 The cookie or header name used when resolving the anonymous visitor id.
 
+By default this matches Signals browser tracking's visitor cookie name: `sig_vid`.
+
 ### `http.experiment_middleware.session_identifier_source`
 
 Controls where the middleware looks for the session identifier used to match `SignalSession.session_identifier`.
 
 Supported values:
 
-- `laravel` — use the current Laravel session id
 - `cookie`
 - `header`
+- `laravel` — use the current Laravel session id
+
+The default is `cookie`, which lines up with Signals browser tracking via the `sig_sid` cookie.
 
 ### `http.experiment_middleware.session_identifier_key`
 
 The cookie or header name used when `session_identifier_source` is `cookie` or `header`.
 
-The default built-in resolver does **not** need this key when `session_identifier_source` is `laravel`.
+By default this matches Signals browser tracking's session cookie name: `sig_sid`.
+
+The built-in resolver does **not** need this key when `session_identifier_source` is `laravel`.
 
 ## Example custom configuration
 

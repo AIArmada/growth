@@ -103,6 +103,7 @@ If the anonymous identifier would make `subject_key` longer than the database co
 
 - the experiment must be accessible in the current owner scope
 - the experiment must be `active`
+- the experiment's tracked property must also be readable in the same owner scope
 - any provided `SignalIdentity` or `SignalSession` must belong to the **same tracked property** as the experiment
 - persisted global experiments require an explicit global owner context before assignments can be resolved
 - assignments stay sticky for the same subject
@@ -126,13 +127,15 @@ Important notes:
 - the middleware slug is explicit: Growth does **not** infer slugs from route names, paths, or controllers
 - the experiment must be `active`
 - the current owner context must allow the experiment to be read
-- the request must resolve at least one subject: authenticated identity, matching Laravel/session identifier, or configured anonymous id cookie/header
+- the request must resolve at least one subject: authenticated identity, current Signals browser context, or a configured cookie/header identifier
 
 The built-in resolver tries, in order:
 
 1. authenticated user → `SignalIdentity.auth_user_type + auth_user_id`, then `external_id`
-2. request session → `SignalSession.session_identifier`
-3. anonymous id from the configured cookie or header
+2. current Signals browser session id (`sig_sid`) or the configured session identifier source
+3. current Signals browser visitor id (`sig_vid`) or the configured anonymous id source
+
+If `signals.integrations.browser.enabled` is on and its middleware has bootstrapped a browser context, you usually do not need any extra request-header wiring for Growth's built-in resolver.
 
 ## Read the current experiment context
 
@@ -254,6 +257,8 @@ The action adds keys such as:
 - `assignment_id`
 - `module_type`
 - `experiment_contexts`
+
+The first context is also flattened back onto the top-level event properties so downstream queries can filter by `experiment_id`, `variant_id`, or `variant_code` without unpacking the array payload first.
 
 ## Aggregate experiment results
 

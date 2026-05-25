@@ -106,9 +106,9 @@ return [
         'experiment_middleware' => [
             'subject_resolver' => null,
             'anonymous_id_source' => 'cookie',
-            'anonymous_id_key' => 'visitor_id',
-            'session_identifier_source' => 'laravel',
-            'session_identifier_key' => 'X-Session-Identifier',
+            'anonymous_id_key' => 'sig_vid',
+            'session_identifier_source' => 'cookie',
+            'session_identifier_key' => 'sig_sid',
         ],
     ],
 ];

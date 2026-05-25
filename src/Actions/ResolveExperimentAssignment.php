@@ -77,16 +77,16 @@ final class ResolveExperimentAssignment
             $candidateKeys[] = 'identity:' . (string) $identity->getKey();
         }
 
-        if ($session instanceof SignalSession) {
-            $candidateKeys[] = 'session:' . (string) $session->getKey();
-        }
-
         if (is_string($anonymousId)) {
             $anonymousSubjectKey = $this->anonymousSubjectKey($anonymousId);
 
             if ($anonymousSubjectKey !== null) {
                 $candidateKeys[] = $anonymousSubjectKey;
             }
+        }
+
+        if ($session instanceof SignalSession) {
+            $candidateKeys[] = 'session:' . (string) $session->getKey();
         }
 
         return array_values(array_unique($candidateKeys));

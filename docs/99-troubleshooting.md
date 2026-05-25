@@ -6,13 +6,14 @@ title: Troubleshooting
 
 ## "Growth experiment is not accessible in the current owner scope"
 
-**Cause:** You are resolving assignments or mutating records outside the correct owner context.
+**Cause:** You are resolving assignments or mutating records outside the correct owner context, or the experiment's tracked property is not readable in that same scope.
 
 **Fix:**
 
 1. Ensure your application binds `OwnerResolverInterface` correctly for request-driven flows.
 2. For jobs, commands, and service code, enter the owner context explicitly.
 3. Use `OwnerContext::withOwner(null, ...)` only for intentional global records.
+4. Make sure the linked Signals tracked property still belongs to the same owner scope as the experiment.
 
 ```php
 use AIArmada\CommerceSupport\Support\OwnerContext;
@@ -43,10 +44,12 @@ Growth does not infer experiment slugs from route names or URLs.
 **Fix:** Ensure at least one of these is true:
 
 - an authenticated user can be matched to `SignalIdentity`
-- the current session id can be matched to `SignalSession.session_identifier`
-- the configured anonymous id cookie/header is present
+- the current `sig_sid` browser cookie or configured session identifier can be matched to `SignalSession.session_identifier`
+- the current `sig_vid` browser cookie or configured anonymous id is present
 
 If your application uses a different identification scheme, provide a custom `growth.http.experiment_middleware.subject_resolver` implementation.
+
+If you expect the default Signals browser cookies to exist, also confirm `signals.integrations.browser.enabled` is turned on for the relevant web flow.
 
 ## "Signal identity/session must belong to the same tracked property as the experiment"
 
@@ -135,6 +138,19 @@ That usually means one of these is true:
 - enable the Blade directives feature flag
 - ensure the request passed through `growth.experiment:{slug}` first
 - add an `@else` branch if you want a deterministic fallback UI
+
+## Enabling Blade directives throws a conflicting-directive error
+
+**Cause:** Another package or app-level boot sequence already registered one of Growth's reserved directive names.
+
+Growth reserves:
+
+- `variant`
+- `elsevariant`
+- `endvariant`
+- `unlessvariant`
+
+**Fix:** remove or rename the conflicting custom directives before enabling `growth.features.blade_directives.enabled`.
 
 ## Deleting a tracked property or experiment leaves related data behind
 
