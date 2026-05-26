@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AIArmada\Growth;
 
 use AIArmada\Growth\Actions\ProjectExperimentContextIntoSignalProperties;
+use AIArmada\Growth\Actions\ResolveAccessibleExperimentBySlug;
 use AIArmada\Growth\Actions\ResolveExperimentPreset;
 use AIArmada\Growth\Actions\ResolveReadableExperimentBySlug;
 use AIArmada\Growth\Contracts\RequestExperimentSubjectResolver;
@@ -34,6 +35,7 @@ final class GrowthServiceProvider extends PackageServiceProvider
         require_once __DIR__ . '/helpers.php';
 
         $this->app->singleton(ResolveExperimentPreset::class);
+        $this->app->singleton(ResolveAccessibleExperimentBySlug::class);
         $this->app->singleton(ResolveReadableExperimentBySlug::class);
         $this->app->singleton(ProjectExperimentContextIntoSignalProperties::class);
         $this->app->singleton(ExperimentContextManager::class);
