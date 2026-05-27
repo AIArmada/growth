@@ -12,7 +12,7 @@ All package options live in `config/growth.php`.
 return [
     'database' => [
         'table_prefix' => 'growth_',
-        'json_column_type' => commerce_json_column_type('growth', 'json'),
+        'json_column_type' => commerce_json_column_type('growth', 'jsonb'),
         'tables' => [
             'experiments' => 'growth_experiments',
             'variants' => 'growth_variants',
@@ -74,7 +74,7 @@ The table prefix used when a table name is not overridden in the `tables` map.
 
 ### `database.json_column_type`
 
-Controls the JSON column type used by growth migrations. Leave this as `commerce_json_column_type('growth', 'json')` unless you need package-specific `jsonb` behavior on PostgreSQL.
+Controls the JSON column type used by growth migrations. Leave this as `commerce_json_column_type('growth', 'jsonb')` unless you need package-specific `jsonb` behavior on PostgreSQL.
 
 ### `database.tables`
 
