@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace AIArmada\Growth\Models;
 
+use AIArmada\CommerceSupport\Concerns\HasCommerceAudit;
+use AIArmada\CommerceSupport\Concerns\LogsCommerceActivity;
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\CommerceSupport\Support\OwnerScopeKey;
 use AIArmada\CommerceSupport\Traits\HasOwner;
@@ -24,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use OwenIt\Auditing\Contracts\Auditable;
 use RuntimeException;
 
 /**
@@ -48,8 +51,9 @@ use RuntimeException;
  * @property-read Collection<int, Variant> $variants
  * @property-read Collection<int, Assignment> $assignments
  */
-final class Experiment extends Model
+final class Experiment extends Model implements Auditable
 {
+    use HasCommerceAudit;
     use HasFactory;
     use HasOwner;
     use HasOwnerScopeConfig;
@@ -57,6 +61,7 @@ final class Experiment extends Model
         resolveOwnerScopeKey as private resolveBaseOwnerScopeKey;
     }
     use HasUuids;
+    use LogsCommerceActivity;
 
     protected static string $ownerScopeConfigKey = 'growth.features.owner';
 

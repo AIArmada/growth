@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace AIArmada\Growth\Models;
 
+use AIArmada\CommerceSupport\Concerns\HasCommerceAudit;
+use AIArmada\CommerceSupport\Concerns\LogsCommerceActivity;
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\CommerceSupport\Support\OwnerScopeConfig;
 use AIArmada\CommerceSupport\Support\OwnerWriteGuard;
@@ -22,6 +24,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use InvalidArgumentException;
+use OwenIt\Auditing\Contracts\Auditable;
 
 /**
  * @property string $id
@@ -42,12 +45,14 @@ use InvalidArgumentException;
  * @property-read SignalIdentity|null $identity
  * @property-read SignalSession|null $session
  */
-final class Assignment extends Model
+final class Assignment extends Model implements Auditable
 {
+    use HasCommerceAudit;
     use HasFactory;
     use HasOwner;
     use HasOwnerScopeConfig;
     use HasUuids;
+    use LogsCommerceActivity;
 
     protected static string $ownerScopeConfigKey = 'growth.features.owner';
 
