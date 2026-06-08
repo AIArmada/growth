@@ -22,10 +22,10 @@ return new class extends Migration
             $table->string('subject_key');
             $table->unsignedInteger('bucket')->default(0);
             $table->{$jsonColumnType}('metadata')->nullable();
-            $table->timestamp('assigned_at');
-            $table->timestamp('first_exposed_at')->nullable();
-            $table->timestamp('last_seen_at')->nullable();
-            $table->timestamps();
+            $table->timestampTz('assigned_at');
+            $table->timestampTz('first_exposed_at')->nullable();
+            $table->timestampTz('last_seen_at')->nullable();
+            $table->timestampsTz();
 
             $table->unique(['experiment_id', 'subject_key']);
             $table->unique(['experiment_id', 'signal_identity_id']);

@@ -28,9 +28,9 @@ return new class extends Migration
             $table->string('winner_metric')->default(config('growth.defaults.winner_metric', 'revenue_per_visitor'));
             $table->{$jsonColumnType}('audience')->nullable();
             $table->{$jsonColumnType}('settings')->nullable();
-            $table->timestamp('started_at')->nullable();
-            $table->timestamp('ended_at')->nullable();
-            $table->timestamps();
+            $table->timestampTz('started_at')->nullable();
+            $table->timestampTz('ended_at')->nullable();
+            $table->timestampsTz();
 
             $table->unique(['owner_scope', 'slug']);
             $table->index(['tracked_property_id', 'status']);

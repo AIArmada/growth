@@ -24,7 +24,7 @@ return new class extends Migration
             $table->boolean('is_control')->default(false);
             $table->boolean('is_active')->default(true);
             $table->{$jsonColumnType}('settings')->nullable();
-            $table->timestamps();
+            $table->timestampsTz();
 
             $table->unique(['experiment_id', 'code']);
             $table->index(['experiment_id', 'is_active']);
