@@ -11,8 +11,8 @@ use AIArmada\CommerceSupport\Support\OwnerScopeConfig;
 use AIArmada\CommerceSupport\Support\OwnerWriteGuard;
 use AIArmada\CommerceSupport\Traits\HasOwner;
 use AIArmada\CommerceSupport\Traits\HasOwnerScopeConfig;
-use AIArmada\Growth\Actions\ResolveAccessibleExperiment;
 use AIArmada\Growth\Actions\ScopeSignalQueryToOwner;
+use AIArmada\Growth\Support\Context\ExperimentResolver;
 use AIArmada\Signals\Models\SignalIdentity;
 use AIArmada\Signals\Models\SignalSession;
 use AIArmada\Signals\Models\TrackedProperty;
@@ -149,9 +149,9 @@ final class Assignment extends Model implements Auditable
 
     private function assertExperimentAndVariantConsistency(): void
     {
-        $experiment = app(ResolveAccessibleExperiment::class)->handle(
+        $experiment = app(ExperimentResolver::class)->resolve(
             (string) $this->experiment_id,
-            'Assignment experiment is not accessible in the current owner scope.',
+            message: 'Assignment experiment is not accessible in the current owner scope.',
         );
 
         if (! $this->exists && $this->owner_type === null && $this->owner_id === null) {

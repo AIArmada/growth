@@ -6,9 +6,11 @@ namespace AIArmada\Growth\Actions;
 
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\CommerceSupport\Support\OwnerWriteGuard;
+use AIArmada\Growth\Enums\ResolveStrategy;
 use AIArmada\Growth\Models\Assignment;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
+use AIArmada\Growth\Support\Context\ExperimentResolver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -118,8 +120,9 @@ final class BuildExperimentSignalProperties
             throw new InvalidArgumentException('Assignment experiment context could not be resolved.');
         }
 
-        $accessibleExperiment = app(ResolveReadableExperiment::class)->handle(
-            $experiment,
+        $accessibleExperiment = app(ExperimentResolver::class)->resolve(
+            (string) $experiment->getKey(),
+            ResolveStrategy::Readable,
             'Assignment is not accessible in the current owner scope.',
         );
 
@@ -150,8 +153,9 @@ final class BuildExperimentSignalProperties
             return null;
         }
 
-        return app(ResolveReadableExperiment::class)->handle(
-            $experiment,
+        return app(ExperimentResolver::class)->resolve(
+            (string) $experiment->getKey(),
+            ResolveStrategy::Readable,
             'Assignment is not accessible in the current owner scope.',
         );
     }

@@ -8,7 +8,7 @@ use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\Growth\Actions\ScopeSignalQueryToOwner;
 use AIArmada\Growth\Contracts\RequestExperimentSubjectResolver;
 use AIArmada\Growth\Models\Experiment;
-use AIArmada\Growth\Support\RequestExperimentSubjects;
+use AIArmada\Growth\Support\Request\RequestExperimentSubjects;
 use AIArmada\Signals\Models\SignalIdentity;
 use AIArmada\Signals\Models\SignalSession;
 use AIArmada\Signals\Support\Browser\SignalsBrowserContext;

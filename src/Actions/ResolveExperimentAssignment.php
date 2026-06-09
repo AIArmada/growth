@@ -10,6 +10,7 @@ use AIArmada\Growth\Enums\ExperimentStatus;
 use AIArmada\Growth\Models\Assignment;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
+use AIArmada\Growth\Support\Context\ExperimentResolver;
 use AIArmada\Signals\Models\SignalIdentity;
 use AIArmada\Signals\Models\SignalSession;
 use AIArmada\Signals\Models\TrackedProperty;
@@ -439,9 +440,9 @@ final class ResolveExperimentAssignment
 
     private function resolveExperimentForCurrentOwner(Experiment $experiment): Experiment
     {
-        return app(ResolveAccessibleExperiment::class)->handle(
-            $experiment,
-            'Growth experiment is not accessible in the current owner scope.',
+        return app(ExperimentResolver::class)->resolve(
+            (string) $experiment->getKey(),
+            message: 'Growth experiment is not accessible in the current owner scope.',
         );
     }
 

@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace AIArmada\Growth\Http\Middleware;
 
-use AIArmada\Growth\Actions\ResolveAccessibleExperimentBySlug;
 use AIArmada\Growth\Actions\ResolveExperimentAssignment;
 use AIArmada\Growth\Contracts\RequestExperimentSubjectResolver;
 use AIArmada\Growth\Enums\ExperimentStatus;
 use AIArmada\Growth\Settings\GrowthSettings;
-use AIArmada\Growth\Support\ExperimentContextManager;
+use AIArmada\Growth\Support\Context\ExperimentContextManager;
+use AIArmada\Growth\Support\Context\ExperimentResolver;
 use Closure;
 use Illuminate\Http\Request;
 use Spatie\LaravelSettings\Exceptions\MissingSettings;
@@ -18,7 +18,7 @@ use Symfony\Component\HttpFoundation\Response;
 final class ResolveExperiment
 {
     public function __construct(
-        private readonly ResolveAccessibleExperimentBySlug $resolveAccessibleExperimentBySlug,
+        private readonly ExperimentResolver $experimentResolver,
         private readonly ResolveExperimentAssignment $resolveExperimentAssignment,
         private readonly RequestExperimentSubjectResolver $requestExperimentSubjectResolver,
         private readonly ExperimentContextManager $experimentContextManager,
@@ -33,7 +33,7 @@ final class ResolveExperiment
             return $response;
         }
 
-        $experiment = $this->resolveAccessibleExperimentBySlug->handle($experimentSlug ?? '');
+        $experiment = $this->experimentResolver->resolveBySlug($experimentSlug ?? '');
 
         if ($experiment->status !== ExperimentStatus::Active) {
             /** @var Response $response */

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace AIArmada\Growth\Support;
+namespace AIArmada\Growth\Support\Request;
 
 use AIArmada\Signals\Models\SignalIdentity;
 use AIArmada\Signals\Models\SignalSession;

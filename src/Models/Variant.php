@@ -8,7 +8,7 @@ use AIArmada\CommerceSupport\Concerns\HasCommerceAudit;
 use AIArmada\CommerceSupport\Concerns\LogsCommerceActivity;
 use AIArmada\CommerceSupport\Traits\HasOwner;
 use AIArmada\CommerceSupport\Traits\HasOwnerScopeConfig;
-use AIArmada\Growth\Actions\ResolveAccessibleExperiment;
+use AIArmada\Growth\Support\Context\ExperimentResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -128,9 +128,9 @@ final class Variant extends Model implements Auditable
 
     private function assertExperimentConsistency(): void
     {
-        $experiment = app(ResolveAccessibleExperiment::class)->handle(
+        $experiment = app(ExperimentResolver::class)->resolve(
             (string) $this->experiment_id,
-            'Variant experiment is not accessible in the current owner scope.',
+            message: 'Variant experiment is not accessible in the current owner scope.',
         );
 
         if (! $this->exists && $this->owner_type === null && $this->owner_id === null) {

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace AIArmada\Growth\Actions;
 
 use AIArmada\CommerceSupport\Support\OwnerContext;
+use AIArmada\Growth\Enums\ResolveStrategy;
 use AIArmada\Growth\Models\Assignment;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
+use AIArmada\Growth\Support\Context\ExperimentResolver;
 use AIArmada\Signals\Models\SignalEvent;
 use AIArmada\Signals\Models\TrackedProperty;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -267,8 +269,12 @@ final class AggregateExperimentMetrics
 
     private function resolveExperimentForCurrentScope(Experiment $experiment): Experiment
     {
-        $resolvedExperiment = app(ResolveReadableExperiment::class)
-            ->handle($experiment, 'Growth experiment is not accessible in the current owner scope.');
+        $resolvedExperiment = app(ExperimentResolver::class)
+            ->resolve(
+                (string) $experiment->getKey(),
+                ResolveStrategy::Readable,
+                'Growth experiment is not accessible in the current owner scope.',
+            );
 
         $trackedProperty = $this->resolveTrackedPropertyForExperiment($resolvedExperiment);
 

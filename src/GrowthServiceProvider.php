@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace AIArmada\Growth;
 
 use AIArmada\Growth\Actions\ProjectExperimentContextIntoSignalProperties;
-use AIArmada\Growth\Actions\ResolveAccessibleExperimentBySlug;
 use AIArmada\Growth\Actions\ResolveExperimentPreset;
-use AIArmada\Growth\Actions\ResolveReadableExperimentBySlug;
+use AIArmada\Growth\Console\Commands\ArchiveExperimentsCommand;
+use AIArmada\Growth\Console\Commands\RecomputeExperimentAssignmentsCommand;
 use AIArmada\Growth\Contracts\RequestExperimentSubjectResolver;
 use AIArmada\Growth\Http\Middleware\ResolveExperiment;
-use AIArmada\Growth\Support\ExperimentContextManager;
+use AIArmada\Growth\Support\Context\ExperimentContextManager;
 use AIArmada\Growth\Support\Http\DefaultRequestExperimentSubjectResolver;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Blade;
@@ -27,7 +27,11 @@ final class GrowthServiceProvider extends PackageServiceProvider
             ->name('growth')
             ->hasConfigFile()
             ->runsMigrations()
-            ->discoversMigrations();
+            ->discoversMigrations()
+            ->hasCommands([
+                RecomputeExperimentAssignmentsCommand::class,
+                ArchiveExperimentsCommand::class,
+            ]);
     }
 
     public function packageRegistered(): void
@@ -35,8 +39,6 @@ final class GrowthServiceProvider extends PackageServiceProvider
         require_once __DIR__ . '/helpers.php';
 
         $this->app->singleton(ResolveExperimentPreset::class);
-        $this->app->singleton(ResolveAccessibleExperimentBySlug::class);
-        $this->app->singleton(ResolveReadableExperimentBySlug::class);
         $this->app->singleton(ProjectExperimentContextIntoSignalProperties::class);
         $this->app->singleton(ExperimentContextManager::class);
         $this->app->bind(RequestExperimentSubjectResolver::class, function ($app): RequestExperimentSubjectResolver {

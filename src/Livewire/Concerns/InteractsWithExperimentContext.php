@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace AIArmada\Growth\Livewire\Concerns;
 
-use AIArmada\Growth\Support\ExperimentContext;
+use AIArmada\Growth\Support\Context\ExperimentContext;
 
 /** @phpstan-ignore trait.unused */
 trait InteractsWithExperimentContext

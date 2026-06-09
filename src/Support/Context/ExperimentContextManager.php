@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace AIArmada\Growth\Support;
+namespace AIArmada\Growth\Support\Context;
 
 use AIArmada\Growth\Models\Assignment;
 use AIArmada\Growth\Models\Experiment;
