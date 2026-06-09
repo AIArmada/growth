@@ -18,7 +18,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use InvalidArgumentException;
 
-final class ExperimentResolver
+class ExperimentResolver
 {
     public function resolve(
         string $id,
