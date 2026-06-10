@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AIArmada\Growth\Database\Factories;
 
 use AIArmada\CommerceSupport\Support\OwnerContext;
+use AIArmada\Growth\Enums\VariantStatus;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -32,6 +33,7 @@ final class VariantFactory extends Factory
             'traffic_percentage' => 50,
             'position' => 0,
             'is_control' => false,
+            'status' => VariantStatus::Active,
             'settings' => null,
             'owner_type' => null,
             'owner_id' => null,
