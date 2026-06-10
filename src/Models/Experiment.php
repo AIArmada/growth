@@ -85,6 +85,9 @@ final class Experiment extends Model implements Auditable
         'settings',
         'started_at',
         'ended_at',
+        'paused_at',
+        'concluded_at',
+        'archived_at',
         'owner_type',
         'owner_id',
     ];
@@ -96,6 +99,9 @@ final class Experiment extends Model implements Auditable
         'settings' => 'array',
         'started_at' => 'immutable_datetime',
         'ended_at' => 'immutable_datetime',
+        'paused_at' => 'immutable_datetime',
+        'concluded_at' => 'immutable_datetime',
+        'archived_at' => 'immutable_datetime',
     ];
 
     public function getTable(): string

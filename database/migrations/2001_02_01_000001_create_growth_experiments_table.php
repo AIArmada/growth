@@ -30,6 +30,9 @@ return new class extends Migration
             $table->{$jsonColumnType}('settings')->nullable();
             $table->timestampTz('started_at')->nullable();
             $table->timestampTz('ended_at')->nullable();
+            $table->timestampTz('paused_at')->nullable();
+            $table->timestampTz('concluded_at')->nullable();
+            $table->timestampTz('archived_at')->nullable();
             $table->timestampsTz();
 
             $table->unique(['owner_scope', 'slug']);

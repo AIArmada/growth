@@ -35,8 +35,7 @@ final class ArchiveExperimentsCommand extends Command
         $total = $runner->forEach(function () use ($threshold, $dryRun): array {
             $experiments = Experiment::query()
                 ->whereIn('status', [
-                    ExperimentStatus::Completed->value,
-                    ExperimentStatus::Cancelled->value,
+                    ExperimentStatus::Concluded->value,
                 ])
                 ->where('updated_at', '<', $threshold)
                 ->get();
@@ -45,7 +44,10 @@ final class ArchiveExperimentsCommand extends Command
 
             foreach ($experiments as $experiment) {
                 if (! $dryRun) {
-                    $experiment->update(['status' => ExperimentStatus::Archived]);
+                    $experiment->update([
+                        'status' => ExperimentStatus::Archived,
+                        'archived_at' => CarbonImmutable::now(),
+                    ]);
                 }
 
                 $archived++;

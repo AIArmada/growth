@@ -22,12 +22,16 @@ return new class extends Migration
             $table->unsignedInteger('traffic_percentage')->default(50);
             $table->unsignedInteger('position')->default(0);
             $table->boolean('is_control')->default(false);
-            $table->boolean('is_active')->default(true);
+            $table->string('status')->default('draft');
+            $table->timestampTz('activated_at')->nullable();
+            $table->timestampTz('deactivated_at')->nullable();
+            $table->timestampTz('retired_at')->nullable();
+            $table->timestampTz('archived_at')->nullable();
             $table->{$jsonColumnType}('settings')->nullable();
             $table->timestampsTz();
 
             $table->unique(['experiment_id', 'code']);
-            $table->index(['experiment_id', 'is_active']);
+            $table->index(['experiment_id', 'status']);
             $table->index(['experiment_id', 'position']);
         });
     }

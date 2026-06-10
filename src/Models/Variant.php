@@ -8,7 +8,9 @@ use AIArmada\CommerceSupport\Concerns\HasCommerceAudit;
 use AIArmada\CommerceSupport\Concerns\LogsCommerceActivity;
 use AIArmada\CommerceSupport\Traits\HasOwner;
 use AIArmada\CommerceSupport\Traits\HasOwnerScopeConfig;
+use AIArmada\Growth\Enums\VariantStatus;
 use AIArmada\Growth\Support\Context\ExperimentResolver;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -30,7 +32,11 @@ use OwenIt\Auditing\Contracts\Auditable;
  * @property int $traffic_percentage
  * @property int $position
  * @property bool $is_control
- * @property bool $is_active
+ * @property VariantStatus $status
+ * @property CarbonImmutable|null $activated_at
+ * @property CarbonImmutable|null $deactivated_at
+ * @property CarbonImmutable|null $retired_at
+ * @property CarbonImmutable|null $archived_at
  * @property array<string, mixed>|null $settings
  * @property-read Experiment $experiment
  * @property-read Collection<int, Assignment> $assignments
@@ -55,7 +61,11 @@ final class Variant extends Model implements Auditable
         'traffic_percentage',
         'position',
         'is_control',
-        'is_active',
+        'status',
+        'activated_at',
+        'deactivated_at',
+        'retired_at',
+        'archived_at',
         'settings',
         'owner_type',
         'owner_id',
@@ -66,7 +76,11 @@ final class Variant extends Model implements Auditable
         'traffic_percentage' => 'integer',
         'position' => 'integer',
         'is_control' => 'boolean',
-        'is_active' => 'boolean',
+        'status' => VariantStatus::class,
+        'activated_at' => 'immutable_datetime',
+        'deactivated_at' => 'immutable_datetime',
+        'retired_at' => 'immutable_datetime',
+        'archived_at' => 'immutable_datetime',
         'settings' => 'array',
     ];
 
@@ -100,7 +114,7 @@ final class Variant extends Model implements Auditable
      */
     public function scopeActive(Builder $query): Builder
     {
-        return $query->where('is_active', true);
+        return $query->where('status', VariantStatus::Active->value);
     }
 
     protected static function booted(): void
