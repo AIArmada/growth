@@ -32,7 +32,6 @@ final class VariantFactory extends Factory
             'traffic_percentage' => 50,
             'position' => 0,
             'is_control' => false,
-            'is_active' => true,
             'settings' => null,
             'owner_type' => null,
             'owner_id' => null,
