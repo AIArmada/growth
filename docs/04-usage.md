@@ -325,6 +325,55 @@ $assignments = Assignment::query()
 
 `forOwner()` requires either a resolved owner or an explicit global owner context.
 
+## Use console commands
+
+Growth ships two Artisan commands for maintenance and data integrity.
+
+### Archive concluded experiments
+
+Archive experiments that have been in `concluded` status beyond a configurable threshold:
+
+```bash
+php artisan growth:archive-experiments
+```
+
+Options:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `--older-than` | `90` | Archive experiments inactive for N days |
+| `--dry-run` | — | Preview which experiments would be archived without persisting |
+
+```bash
+# Preview what would be archived in the last 30 days
+php artisan growth:archive-experiments --older-than=30 --dry-run
+
+# Archive experiments concluded more than 60 days ago
+php artisan growth:archive-experiments --older-than=60
+```
+
+The command runs per owner when owner scoping is enabled and sets the experiment status to `archived` with an `archived_at` timestamp.
+
+### Recompute orphaned assignments
+
+Recompute assignments that have a missing or empty `variant_id`:
+
+```bash
+php artisan growth:recompute-assignments
+```
+
+Options:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `--dry-run` | — | Preview which assignments would be updated without persisting |
+
+```bash
+php artisan growth:recompute-assignments --dry-run
+```
+
+The command picks a random active variant from the assignment's experiment for each orphaned record.
+
 ## Optional Filament admin UI
 
 If `aiarmada/filament-growth` is installed, you get:

@@ -31,6 +31,7 @@ The `aiarmada/growth` package owns experimentation primitives for the Commerce e
 
 - **Models** — `Experiment`, `Variant`, `Assignment`
 - **Runtime surfaces** — middleware, helper, facade, Blade directives, Livewire concern, and event-property enrichment
+- **Console commands** — `growth:archive-experiments` and `growth:recompute-assignments`
 - **Reporting surface** — `AggregateExperimentMetrics` and winner-ready result summaries
 
 ## Owner scoping and security notes
@@ -91,7 +92,27 @@ The main runtime flows are:
 - Preset-aware defaults during experiment creation
 - Explicit experiment slugs with automatic `Str::slug()` fallback when the slug is left blank on create
 - Service-container binding for `growth.signal_event_property_enricher`
+- Console commands for archiving concluded experiments and recomputing orphaned assignments
 - Optional admin UI via [`aiarmada/filament-growth`](../../filament-growth/docs/01-overview.md)
+
+## Directory structure
+
+```
+src/
+├── Console/
+│   └── Commands/
+│       ├── ArchiveExperimentsCommand.php
+│       └── RecomputeExperimentAssignmentsCommand.php
+├── Support/
+│   ├── Context/
+│   │   ├── ExperimentContext.php
+│   │   ├── ExperimentContextManager.php
+│   │   └── ExperimentResolver.php
+│   ├── Request/
+│   │   └── RequestExperimentSubjects.php
+│   └── …
+└── ─ ─
+```
 
 ## Related packages
 
