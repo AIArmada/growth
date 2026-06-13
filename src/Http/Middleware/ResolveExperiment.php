@@ -12,6 +12,7 @@ use AIArmada\Growth\Support\Context\ExperimentContextManager;
 use AIArmada\Growth\Support\Context\ExperimentResolver;
 use Closure;
 use Illuminate\Http\Request;
+use InvalidArgumentException;
 use Spatie\LaravelSettings\Exceptions\MissingSettings;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -33,7 +34,14 @@ final class ResolveExperiment
             return $response;
         }
 
-        $experiment = $this->experimentResolver->resolveBySlug($experimentSlug ?? '');
+        try {
+            $experiment = $this->experimentResolver->resolveBySlug($experimentSlug ?? '');
+        } catch (InvalidArgumentException) {
+            /** @var Response $response */
+            $response = $next($request);
+
+            return $response;
+        }
 
         if ($experiment->status !== ExperimentStatus::Active) {
             /** @var Response $response */
