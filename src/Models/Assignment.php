@@ -68,8 +68,6 @@ final class Assignment extends Model implements Auditable
         'assigned_at',
         'first_exposed_at',
         'last_seen_at',
-        'owner_type',
-        'owner_id',
     ];
 
     /** @var array<string, string> */

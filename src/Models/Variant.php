@@ -67,8 +67,6 @@ final class Variant extends Model implements Auditable
         'retired_at',
         'archived_at',
         'settings',
-        'owner_type',
-        'owner_id',
     ];
 
     /** @var array<string, string> */

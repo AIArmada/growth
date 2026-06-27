@@ -88,8 +88,6 @@ final class Experiment extends Model implements Auditable
         'paused_at',
         'concluded_at',
         'archived_at',
-        'owner_type',
-        'owner_id',
     ];
 
     /** @var array<string, string> */
