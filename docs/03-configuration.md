@@ -135,10 +135,10 @@ Owner scoping controls for growth models:
 
 ```php
 'owner' => [
-    'enabled' => true,
-    'include_global' => false,
-    'auto_assign_on_create' => true,
-],
+            'enabled' => false,
+            'include_global' => false,
+            'auto_assign_on_create' => true,
+        ],
 ```
 
 - `enabled`: apply owner scoping to `Experiment`, `Variant`, and `Assignment`
