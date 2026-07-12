@@ -11,7 +11,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create(config('growth.database.tables.variants', 'growth_variants'), function (Blueprint $table): void {
-            $jsonColumnType = config('growth.database.json_column_type', commerce_json_column_type('growth', 'jsonb'));
+            $jsonColumnType = commerce_json_column_type('growth', 'jsonb');
 
             $table->uuid('id')->primary();
             $table->foreignUuid('experiment_id');

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create(config('growth.database.tables.experiments', 'growth_experiments'), function (Blueprint $table): void {
-            $jsonColumnType = config('growth.database.json_column_type', commerce_json_column_type('growth', 'jsonb'));
+            $jsonColumnType = commerce_json_column_type('growth', 'jsonb');
 
             $table->uuid('id')->primary();
             $table->foreignUuid('tracked_property_id');

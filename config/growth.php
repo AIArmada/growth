@@ -8,7 +8,6 @@ return [
     /* Database */
     'database' => [
         'table_prefix' => $tablePrefix,
-        'json_column_type' => commerce_json_column_type('growth', 'jsonb'),
         'tables' => [
             'experiments' => $tablePrefix . 'experiments',
             'variants' => $tablePrefix . 'variants',
