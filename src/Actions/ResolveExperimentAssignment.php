@@ -244,6 +244,17 @@ final class ResolveExperimentAssignment
     /**
      * @return array{0: Variant, 1: int}
      */
+    public function variantForSubject(Experiment $experiment, string $subjectKey): array
+    {
+        $this->assertExperimentCanReceiveAssignments($experiment);
+
+        if ($experiment->status !== ExperimentStatus::Active) {
+            throw new InvalidArgumentException('Assignments can only be resolved for active experiments.');
+        }
+
+        return $this->pickVariant($experiment, $subjectKey);
+    }
+
     private function pickVariant(Experiment $experiment, string $subjectKey): array
     {
         $variants = $this->variantQuery($experiment)

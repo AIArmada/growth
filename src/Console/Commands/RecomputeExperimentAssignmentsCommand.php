@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AIArmada\Growth\Console\Commands;
 
 use AIArmada\CommerceSupport\Support\OwnerBatchRunner;
+use AIArmada\Growth\Actions\RepairExperimentAssignment;
 use AIArmada\Growth\Models\Assignment;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -12,53 +13,43 @@ use Illuminate\Support\Facades\Log;
 final class RecomputeExperimentAssignmentsCommand extends Command
 {
     protected $signature = 'growth:recompute-assignments
-                          {--dry-run : Dry run without persisting changes}';
+                          {--dry-run : Report changes without persisting them}';
 
-    protected $description = 'Recompute experiment assignments per owner';
+    protected $description = 'Repair experiment assignments with the canonical deterministic allocator';
+
+    public function __construct(
+        private readonly RepairExperimentAssignment $repair,
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
         $dryRun = (bool) $this->option('dry-run');
+        $runner = new OwnerBatchRunner(Assignment::class, ['enabled' => 'commerce-support.owner.enabled']);
 
-        $this->info($dryRun ? 'DRY RUN: Recomputing experiment assignments...' : 'Recomputing experiment assignments...');
+        $results = $runner->forEach(function () use ($dryRun): array {
+            $counts = ['changed' => 0, 'quarantined' => 0, 'unchanged' => 0];
 
-        $runner = new OwnerBatchRunner(Assignment::class, [
-            'enabled' => 'commerce-support.owner.enabled',
-        ]);
+            Assignment::query()
+                ->with(['experiment.variants', 'variant'])
+                ->orderBy('id')
+                ->each(function (Assignment $assignment) use (&$counts, $dryRun): void {
+                    $result = $this->repair->handle($assignment, ! $dryRun);
+                    $counts[$result]++;
+                });
 
-        $total = $runner->forEach(function () use ($dryRun): array {
-            $assignments = Assignment::query()
-                ->whereNull('variant_id')
-                ->orWhere('variant_id', '')
-                ->get();
-
-            $recomputed = 0;
-
-            foreach ($assignments as $assignment) {
-                if (! $dryRun) {
-                    $experiment = $assignment->experiment;
-                    if ($experiment !== null && $experiment->variants()->exists()) {
-                        $variant = $experiment->variants()->inRandomOrder()->first();
-                        if ($variant !== null) {
-                            $assignment->update(['variant_id' => $variant->id]);
-                        }
-                    }
-                }
-
-                $recomputed++;
-            }
-
-            return ['recomputed' => $recomputed];
+            return $counts;
         });
 
-        $totalRecomputed = collect($total)->sum('recomputed');
+        $changed = (int) collect($results)->sum('changed');
+        $quarantined = (int) collect($results)->sum('quarantined');
+        $unchanged = (int) collect($results)->sum('unchanged');
+        $prefix = $dryRun ? 'Would change' : 'Changed';
 
-        $this->info("Total assignments processed: {$totalRecomputed}");
+        $this->info("{$prefix}: {$changed}; " . ($dryRun ? 'would quarantine' : 'quarantined') . ": {$quarantined}; unchanged: {$unchanged}");
 
-        Log::info('Experiment assignments recomputed', [
-            'total' => $totalRecomputed,
-            'dry_run' => $dryRun,
-        ]);
+        Log::info('Experiment assignment repair completed', compact('changed', 'quarantined', 'unchanged', 'dryRun'));
 
         return self::SUCCESS;
     }
