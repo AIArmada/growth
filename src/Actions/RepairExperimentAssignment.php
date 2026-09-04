@@ -7,6 +7,7 @@ namespace AIArmada\Growth\Actions;
 use AIArmada\Growth\Enums\ExperimentStatus;
 use AIArmada\Growth\Models\Assignment;
 use Carbon\CarbonImmutable;
+use RuntimeException;
 use Throwable;
 
 final class RepairExperimentAssignment
@@ -27,13 +28,13 @@ final class RepairExperimentAssignment
             $experiment = $assignment->experiment;
 
             if ($experiment === null || $experiment->status !== ExperimentStatus::Active) {
-                throw new \RuntimeException('The parent experiment is missing or inactive.');
+                throw new RuntimeException('The parent experiment is missing or inactive.');
             }
 
             $subjectKey = mb_trim((string) $assignment->subject_key);
 
             if ($subjectKey === '') {
-                throw new \RuntimeException('The assignment subject key is empty.');
+                throw new RuntimeException('The assignment subject key is empty.');
             }
 
             [$variant, $bucket] = $this->resolver->variantForSubject($experiment, $subjectKey);
