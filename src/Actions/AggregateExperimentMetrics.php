@@ -370,7 +370,7 @@ final class AggregateExperimentMetrics
         $trackedProperty = $experiment->trackedProperty;
 
         if (! $trackedProperty instanceof TrackedProperty) {
-            return SignalEvent::query()->whereRaw('1 = 0');
+            return SignalEvent::query()->whereKey([]);
         }
 
         $owner = OwnerContext::fromTypeAndId($trackedProperty->owner_type, $trackedProperty->owner_id);

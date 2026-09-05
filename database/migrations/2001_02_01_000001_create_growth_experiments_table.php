@@ -5,13 +5,12 @@ declare(strict_types=1);
 use AIArmada\Growth\Enums\ExperimentStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create(config('growth.database.tables.experiments', 'growth_experiments'), function (Blueprint $table): void {
+        commerce_schema_create_if_missing(config('growth.database.tables.experiments', 'growth_experiments'), function (Blueprint $table): void {
             $jsonColumnType = commerce_json_column_type('growth', 'jsonb');
 
             $table->uuid('id')->primary();

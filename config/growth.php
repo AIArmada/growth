@@ -8,6 +8,7 @@ return [
     /* Database */
     'database' => [
         'table_prefix' => $tablePrefix,
+        'json_column_type' => env('GROWTH_JSON_COLUMN_TYPE', 'jsonb'),
         'tables' => [
             'experiments' => $tablePrefix . 'experiments',
             'variants' => $tablePrefix . 'variants',
