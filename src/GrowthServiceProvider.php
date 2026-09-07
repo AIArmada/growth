@@ -65,8 +65,25 @@ final class GrowthServiceProvider extends PackageServiceProvider
 
     public function packageBooted(): void
     {
+        $this->assertOwnerModeMatchesSignals();
         $this->registerExperimentMiddleware();
         $this->registerBladeDirectives();
+    }
+
+    private function assertOwnerModeMatchesSignals(): void
+    {
+        if (! config()->has('signals.owner.enabled')) {
+            return;
+        }
+
+        $growthOwnerEnabled = (bool) config('growth.features.owner.enabled', false);
+        $signalsOwnerEnabled = (bool) config('signals.owner.enabled', false);
+
+        if ($growthOwnerEnabled !== $signalsOwnerEnabled) {
+            throw new InvalidArgumentException(
+                'Growth and Signals owner scoping must be enabled or disabled together.',
+            );
+        }
     }
 
     private function registerExperimentMiddleware(): void

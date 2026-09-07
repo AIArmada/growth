@@ -145,6 +145,8 @@ Owner scoping controls for growth models:
 - `include_global`: whether readable owner-scoped queries may include global rows
 - `auto_assign_on_create`: automatically stamp the current owner on new rows when owner columns are omitted
 
+When Signals is installed, `growth.features.owner.enabled` and `signals.owner.enabled` must match. Growth fails during package boot if one package is owner-scoped and the other is not; both defaults are `false`.
+
 ### `features.preset_modules.enabled`
 
 Enables module presets and preset-aware defaults for new experiments.
