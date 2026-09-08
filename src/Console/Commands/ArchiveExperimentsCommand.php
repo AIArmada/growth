@@ -44,10 +44,7 @@ final class ArchiveExperimentsCommand extends Command
 
             foreach ($experiments as $experiment) {
                 if (! $dryRun) {
-                    $experiment->update([
-                        'status' => ExperimentStatus::Archived,
-                        'archived_at' => CarbonImmutable::now(),
-                    ]);
+                    $experiment->transitionTo(ExperimentStatus::Archived)->save();
                 }
 
                 $archived++;

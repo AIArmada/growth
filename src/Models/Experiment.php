@@ -7,7 +7,9 @@ namespace AIArmada\Growth\Models;
 use AIArmada\CommerceSupport\Concerns\HasCommerceAudit;
 use AIArmada\CommerceSupport\Concerns\LogsCommerceActivity;
 use AIArmada\CommerceSupport\Support\OwnerContext;
+use AIArmada\CommerceSupport\Support\OwnerScope;
 use AIArmada\CommerceSupport\Support\OwnerScopeKey;
+use AIArmada\CommerceSupport\Support\OwnerTuple\OwnerTupleColumns;
 use AIArmada\CommerceSupport\Traits\HasOwner;
 use AIArmada\CommerceSupport\Traits\HasOwnerScopeConfig;
 use AIArmada\CommerceSupport\Traits\HasOwnerScopeKey;
@@ -26,6 +28,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
+use OwenIt\Auditing\Contracts\Audit;
 use OwenIt\Auditing\Contracts\Auditable;
 use RuntimeException;
 
@@ -47,13 +50,18 @@ use RuntimeException;
  * @property array<string, mixed>|null $settings
  * @property CarbonImmutable|null $started_at
  * @property CarbonImmutable|null $ended_at
+ * @property CarbonImmutable|null $paused_at
+ * @property CarbonImmutable|null $concluded_at
+ * @property CarbonImmutable|null $archived_at
  * @property-read TrackedProperty $trackedProperty
  * @property-read Collection<int, Variant> $variants
  * @property-read Collection<int, Assignment> $assignments
  */
 final class Experiment extends Model implements Auditable
 {
-    use HasCommerceAudit;
+    use HasCommerceAudit {
+        transitionTo as private transitionToAudit;
+    }
     use HasFactory;
     use HasOwner;
     use HasOwnerScopeConfig;
@@ -143,6 +151,53 @@ final class Experiment extends Model implements Auditable
         return $query->where('status', ExperimentStatus::Active->value);
     }
 
+    public function transitionTo(ExperimentStatus | Audit $status, bool | string | null $notes = null): static
+    {
+        if ($status instanceof Audit) {
+            $this->transitionToAudit($status, is_bool($notes) ? $notes : false);
+
+            return $this;
+        }
+
+        $at = CarbonImmutable::now();
+
+        $this->status = $status;
+
+        match ($status) {
+            ExperimentStatus::Draft => null,
+            ExperimentStatus::Active => $this->transitionToActive($at),
+            ExperimentStatus::Paused => $this->transitionToPaused($at),
+            ExperimentStatus::Concluded => $this->transitionToConcluded($at),
+            ExperimentStatus::Archived => $this->transitionToArchived($at),
+        };
+
+        unset($notes);
+
+        return $this;
+    }
+
+    /**
+     * Count variants and assignments whose owner tuple matches the experiment.
+     *
+     * Eloquent owner scopes do not apply inside correlated subqueries, so the
+     * child query is deliberately unscoped before the explicit tuple match.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public function scopeWithOwnerMatchedCounts(Builder $query): Builder
+    {
+        $experimentTable = $query->getModel()->getTable();
+
+        if ($query->getQuery()->columns === null) {
+            $query->select($experimentTable . '.*');
+        }
+
+        return $query
+            ->selectSub($this->ownerMatchedChildCount(Variant::class, $experimentTable), 'variants_count')
+            ->selectSub($this->ownerMatchedChildCount(Assignment::class, $experimentTable), 'assignments_count');
+    }
+
     protected static function booted(): void
     {
         static::creating(function (Experiment $experiment): void {
@@ -212,6 +267,80 @@ final class Experiment extends Model implements Auditable
                 $variant->delete();
             });
         });
+    }
+
+    private function transitionToActive(CarbonImmutable $at): void
+    {
+        $this->started_at ??= $at;
+        $this->paused_at = null;
+    }
+
+    private function transitionToPaused(CarbonImmutable $at): void
+    {
+        $this->paused_at ??= $at;
+    }
+
+    private function transitionToConcluded(CarbonImmutable $at): void
+    {
+        $this->concluded_at ??= $at;
+        $this->ended_at ??= $at;
+        $this->paused_at = null;
+    }
+
+    private function transitionToArchived(CarbonImmutable $at): void
+    {
+        $this->archived_at ??= $at;
+        $this->ended_at ??= $at;
+        $this->paused_at = null;
+    }
+
+    /**
+     * @template TChildModel of Model
+     *
+     * @param  class-string<TChildModel>  $childModelClass
+     * @return Builder<TChildModel>
+     */
+    private function ownerMatchedChildCount(string $childModelClass, string $experimentTable): Builder
+    {
+        $childModel = new $childModelClass;
+        $childTable = $childModel->getTable();
+        $experimentOwnerColumns = OwnerTupleColumns::forModelClass(self::class);
+        $childOwnerColumns = OwnerTupleColumns::forModelClass($childModelClass);
+
+        /** @var Builder<TChildModel> $childQuery */
+        $childQuery = $childModelClass::query();
+
+        if (method_exists($childModelClass, 'scopeWithoutOwnerScope')) {
+            $childQuery = $childQuery->withoutGlobalScope(OwnerScope::class);
+        }
+
+        $childQuery = $childQuery
+            ->selectRaw('count(*)')
+            ->whereColumn($childTable . '.experiment_id', $experimentTable . '.id')
+            ->where(function (Builder $query) use ($childOwnerColumns, $childTable, $experimentOwnerColumns, $experimentTable): void {
+                $query
+                    ->where(function (Builder $ownerMatchedQuery) use ($childOwnerColumns, $childTable, $experimentOwnerColumns, $experimentTable): void {
+                        $ownerMatchedQuery
+                            ->whereColumn(
+                                $childTable . '.' . $childOwnerColumns->ownerTypeColumn,
+                                $experimentTable . '.' . $experimentOwnerColumns->ownerTypeColumn,
+                            )
+                            ->whereColumn(
+                                $childTable . '.' . $childOwnerColumns->ownerIdColumn,
+                                $experimentTable . '.' . $experimentOwnerColumns->ownerIdColumn,
+                            );
+                    })
+                    ->orWhere(function (Builder $globalQuery) use ($childOwnerColumns, $childTable, $experimentOwnerColumns, $experimentTable): void {
+                        $globalQuery
+                            ->whereNull($childTable . '.' . $childOwnerColumns->ownerTypeColumn)
+                            ->whereNull($childTable . '.' . $childOwnerColumns->ownerIdColumn)
+                            ->whereNull($experimentTable . '.' . $experimentOwnerColumns->ownerTypeColumn)
+                            ->whereNull($experimentTable . '.' . $experimentOwnerColumns->ownerIdColumn);
+                    });
+            });
+
+        /** @var Builder<TChildModel> $childQuery */
+        return $childQuery;
     }
 
     protected static function resolveOwnerScopeKey(Model $model): string

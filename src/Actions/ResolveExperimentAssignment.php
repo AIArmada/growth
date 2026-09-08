@@ -11,6 +11,8 @@ use AIArmada\Growth\Models\Assignment;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
 use AIArmada\Growth\Support\Context\ExperimentResolver;
+use AIArmada\Growth\Support\Queries\AssignmentQuery;
+use AIArmada\Growth\Support\Queries\VariantQuery;
 use AIArmada\Signals\Models\SignalIdentity;
 use AIArmada\Signals\Models\SignalSession;
 use AIArmada\Signals\Models\TrackedProperty;
@@ -122,7 +124,6 @@ final class ResolveExperimentAssignment
     ): EloquentCollection {
         /** @var EloquentCollection<int, Assignment> $assignments */
         $assignments = $this->assignmentQuery($experiment)
-            ->where('experiment_id', $experiment->getKey())
             ->where(function (Builder $query) use ($candidateKeys, $identity, $session): void {
                 if ($identity instanceof SignalIdentity) {
                     $query->orWhere('signal_identity_id', $identity->getKey());
@@ -258,7 +259,6 @@ final class ResolveExperimentAssignment
     private function pickVariant(Experiment $experiment, string $subjectKey): array
     {
         $variants = $this->variantQuery($experiment)
-            ->where('experiment_id', $experiment->getKey())
             ->active()
             ->where('traffic_percentage', '>', 0)
             ->orderBy('position')
@@ -479,17 +479,7 @@ final class ResolveExperimentAssignment
      */
     private function assignmentQuery(Experiment $experiment): Builder
     {
-        if (! Assignment::ownerScopeConfig()->enabled) {
-            return Assignment::query();
-        }
-
-        $owner = OwnerContext::fromTypeAndId($experiment->owner_type, $experiment->owner_id);
-
-        if ($owner === null) {
-            return Assignment::query()->globalOnly();
-        }
-
-        return Assignment::query()->forOwner($owner, includeGlobal: false);
+        return app(AssignmentQuery::class)->forExperiment($experiment);
     }
 
     /**
@@ -497,17 +487,7 @@ final class ResolveExperimentAssignment
      */
     private function variantQuery(Experiment $experiment): Builder
     {
-        if (! Variant::ownerScopeConfig()->enabled) {
-            return Variant::query();
-        }
-
-        $owner = OwnerContext::fromTypeAndId($experiment->owner_type, $experiment->owner_id);
-
-        if ($owner === null) {
-            return Variant::query()->globalOnly();
-        }
-
-        return Variant::query()->forOwner($owner, includeGlobal: false);
+        return app(VariantQuery::class)->forExperiment($experiment);
     }
 
     private function resolveSignalIdentityForExperiment(Experiment $experiment, string $id, string $message): SignalIdentity

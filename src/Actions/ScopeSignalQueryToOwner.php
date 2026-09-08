@@ -13,6 +13,10 @@ use Illuminate\Database\Eloquent\Model;
 final class ScopeSignalQueryToOwner
 {
     /**
+     * Canonical owner scoping lives on HasOwner::forOwner(). Models whose owner
+     * mode is disabled still need explicit tuple filtering when a related
+     * owner-scoped package remains enabled.
+     *
      * @template TModel of Model
      *
      * @param  Builder<TModel>  $query
@@ -22,25 +26,25 @@ final class ScopeSignalQueryToOwner
     {
         /** @var class-string<Model> $modelClass */
         $modelClass = $query->getModel()::class;
-        $ownerTypeColumn = 'owner_type';
-        $ownerIdColumn = 'owner_id';
 
         if (method_exists($modelClass, 'ownerScopeConfig')) {
             /** @var OwnerScopeConfig $config */
             $config = $modelClass::ownerScopeConfig();
-            $ownerTypeColumn = $config->ownerTypeColumn;
-            $ownerIdColumn = $config->ownerIdColumn;
+
+            if ($config->enabled) {
+                $query = $query->withoutGlobalScope(OwnerScope::class);
+            }
+
+            return OwnerQuery::applyToEloquentBuilder(
+                $query,
+                $owner,
+                $includeGlobal,
+                $config->ownerTypeColumn,
+                $config->ownerIdColumn,
+            );
         }
 
-        /** @var Builder<TModel> $scopedQuery */
-        $scopedQuery = $query->withoutGlobalScope(OwnerScope::class);
-
-        return OwnerQuery::applyToEloquentBuilder(
-            $scopedQuery,
-            $owner,
-            $includeGlobal,
-            $ownerTypeColumn,
-            $ownerIdColumn,
-        );
+        /** @var Builder<TModel> $query */
+        return OwnerQuery::applyToEloquentBuilder($query, $owner, $includeGlobal);
     }
 }
