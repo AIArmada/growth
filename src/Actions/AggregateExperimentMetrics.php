@@ -231,22 +231,23 @@ final class AggregateExperimentMetrics
         $variantTable = (new Variant)->getTable();
         $assignmentTable = (new Assignment)->getTable();
         $experimentIds = $experiments->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all();
+        $signalsJsonColumnType = commerce_json_column_type('signals', 'jsonb');
         $variantQuery = OwnerUiScope::apply(Variant::query(), includeGlobal: false)
             ->whereIn($variantTable . '.experiment_id', $experimentIds)
             ->select([
                 DB::raw("'variant' AS record_type"),
                 $variantTable . '.id AS record_id',
                 $variantTable . '.experiment_id',
-                DB::raw('NULL AS tracked_property_id'),
+                DB::raw('CAST(NULL AS uuid) AS tracked_property_id'),
                 DB::raw('NULL AS variant_id'),
                 DB::raw('NULL AS subject_key'),
                 DB::raw('NULL AS assigned_at'),
-                DB::raw('NULL AS occurred_at'),
+                DB::raw('CAST(NULL AS timestamptz) AS occurred_at'),
                 DB::raw('NULL AS event_name'),
                 DB::raw('NULL AS event_category'),
-                DB::raw('NULL AS revenue_minor'),
+                DB::raw('CAST(NULL AS bigint) AS revenue_minor'),
                 DB::raw('NULL AS currency'),
-                DB::raw('NULL AS properties'),
+                DB::raw("CAST(NULL AS {$signalsJsonColumnType}) AS properties"),
                 $variantTable . '.code',
                 $variantTable . '.name',
                 $variantTable . '.position',
@@ -257,16 +258,16 @@ final class AggregateExperimentMetrics
                 DB::raw("'assignment' AS record_type"),
                 $assignmentTable . '.id AS record_id',
                 $assignmentTable . '.experiment_id',
-                DB::raw('NULL AS tracked_property_id'),
+                DB::raw('CAST(NULL AS uuid) AS tracked_property_id'),
                 $assignmentTable . '.variant_id',
                 $assignmentTable . '.subject_key',
                 $assignmentTable . '.assigned_at',
-                DB::raw('NULL AS occurred_at'),
+                DB::raw('CAST(NULL AS timestamptz) AS occurred_at'),
                 DB::raw('NULL AS event_name'),
                 DB::raw('NULL AS event_category'),
-                DB::raw('NULL AS revenue_minor'),
+                DB::raw('CAST(NULL AS bigint) AS revenue_minor'),
                 DB::raw('NULL AS currency'),
-                DB::raw('NULL AS properties'),
+                DB::raw("CAST(NULL AS {$signalsJsonColumnType}) AS properties"),
                 DB::raw('NULL AS code'),
                 DB::raw('NULL AS name'),
                 DB::raw('NULL AS position'),
