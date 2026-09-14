@@ -142,10 +142,13 @@ final class ExperimentAssignmentResolver
      */
     private function candidateSubjectKeys(Model $source): array
     {
-        return array_map(
-            static fn (string $anonymousId): string => 'anonymous:' . $anonymousId,
-            $this->candidateAnonymousIds($source),
-        );
+        return array_values(array_filter(
+            array_map(
+                static fn (string $anonymousId): ?string => AnonymousSubjectKey::make($anonymousId),
+                $this->candidateAnonymousIds($source),
+            ),
+            static fn (?string $subjectKey): bool => $subjectKey !== null,
+        ));
     }
 
     private function stringValue(mixed $value): ?string

@@ -73,6 +73,12 @@ return [
         ],
     ],
 
+    /* Metrics */
+    'metrics' => [
+        'max_assignment_rows' => 50000,
+        'max_event_rows' => 50000,
+    ],
+
     /* Features / Behavior */
     'features' => [
         'owner' => [

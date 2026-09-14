@@ -116,6 +116,16 @@ The built-in presets ship with these settings shapes:
 - `funnel_test`: `funnel_steps[]` with `label`, `event_name`, and `event_category`
 - `pricing_test`: `checkout_event_name`, `price_labels`
 
+## Metrics
+
+### `metrics.max_assignment_rows`
+
+Maximum assignment rows read per experiment (or per batch leg) by `AggregateExperimentMetrics`. Oldest first; overflow sets `truncated: true` on the result. Default `50000`.
+
+### `metrics.max_event_rows`
+
+Maximum signal-event rows read per experiment (or per batch leg) by `AggregateExperimentMetrics`. Oldest first; overflow sets `truncated: true` on the result. Default `50000`.
+
 ## Slug behavior
 
 Growth keeps experiment slugs explicit and lightweight:

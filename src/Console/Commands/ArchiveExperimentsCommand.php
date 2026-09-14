@@ -22,33 +22,33 @@ final class ArchiveExperimentsCommand extends Command
     public function handle(): int
     {
         $dryRun = (bool) $this->option('dry-run');
-        $olderThanDays = (int) $this->option('older-than');
+        $olderThanDays = max(0, (int) $this->option('older-than'));
         $threshold = CarbonImmutable::now()->subDays($olderThanDays);
 
         $this->info($dryRun ? 'DRY RUN: Archiving experiments...' : 'Archiving experiments...');
         $this->line("Threshold: {$threshold->toDateString()}");
 
         $runner = new OwnerBatchRunner(Experiment::class, [
-            'enabled' => 'commerce-support.owner.enabled',
+            'enabled' => 'growth.features.owner.enabled',
         ]);
 
         $total = $runner->forEach(function () use ($threshold, $dryRun): array {
-            $experiments = Experiment::query()
+            $archived = 0;
+
+            Experiment::query()
                 ->whereIn('status', [
                     ExperimentStatus::Concluded->value,
                 ])
                 ->where('updated_at', '<', $threshold)
-                ->get();
+                ->chunkById(500, function ($experiments) use (&$archived, $dryRun): void {
+                    foreach ($experiments as $experiment) {
+                        if (! $dryRun) {
+                            $experiment->transitionTo(ExperimentStatus::Archived)->save();
+                        }
 
-            $archived = 0;
-
-            foreach ($experiments as $experiment) {
-                if (! $dryRun) {
-                    $experiment->transitionTo(ExperimentStatus::Archived)->save();
-                }
-
-                $archived++;
-            }
+                        $archived++;
+                    }
+                });
 
             return ['archived' => $archived];
         });

@@ -20,7 +20,10 @@ final class MetricsCalculator
      * @param  Collection<int, Variant>  $variants
      * @param  Collection<string, Collection<int, Assignment>>  $assignments
      * @param  Collection<int, SignalEvent>  $events
-     * @return array{winner_variant_id: string|null, totals: array{assignments: int, checkout_starts: int, purchases: int, refunds: int, revenue_minor: int}, variants: array<int, array<string, float|int|string|null>>}
+     *                                                Revenue without currency conversion only sums experiment-currency events;
+     *                                                other-currency (and unstamped) revenue is reported separately as
+     *                                                excluded so totals reconcile instead of silently dropping.
+     * @return array{winner_variant_id: string|null, totals: array{assignments: int, checkout_starts: int, purchases: int, refunds: int, revenue_minor: int, excluded_revenue_minor: int, excluded_events: int}, variants: array<int, array<string, float|int|string|null>>}
      */
     public function calculate(
         Experiment $experiment,
@@ -52,6 +55,8 @@ final class MetricsCalculator
             'purchases' => array_sum(array_map(static fn (array $metrics): int => (int) $metrics['purchases'], $variantMetrics)),
             'refunds' => array_sum(array_map(static fn (array $metrics): int => (int) $metrics['refunds'], $variantMetrics)),
             'revenue_minor' => array_sum(array_map(static fn (array $metrics): int => (int) $metrics['revenue_minor'], $variantMetrics)),
+            'excluded_revenue_minor' => array_sum(array_map(static fn (array $metrics): int => (int) $metrics['excluded_revenue_minor'], $variantMetrics)),
+            'excluded_events' => array_sum(array_map(static fn (array $metrics): int => (int) $metrics['excluded_events'], $variantMetrics)),
         ];
 
         $winnerVariantId = null;
@@ -127,6 +132,14 @@ final class MetricsCalculator
         $refundRevenue = (int) $refundEvents
             ->filter(fn (array $payload): bool => $this->eventMatchesCurrency($payload['event'], $experimentCurrency))
             ->sum(fn (array $payload): int => (int) $payload['event']->revenue_minor);
+        $excludedPurchaseEvents = $purchaseEvents
+            ->reject(fn (array $payload): bool => $this->eventMatchesCurrency($payload['event'], $experimentCurrency))
+            ->values();
+        $excludedRefundEvents = $refundEvents
+            ->reject(fn (array $payload): bool => $this->eventMatchesCurrency($payload['event'], $experimentCurrency))
+            ->values();
+        $excludedRevenueMinor = (int) $excludedPurchaseEvents->sum(fn (array $payload): int => (int) $payload['event']->revenue_minor)
+            - (int) $excludedRefundEvents->sum(fn (array $payload): int => (int) $payload['event']->revenue_minor);
         $assignmentCount = $variantAssignments->count();
         $convertingAssignments = $purchaseEvents
             ->map(function (array $payload): ?string {
@@ -149,6 +162,8 @@ final class MetricsCalculator
             'purchases' => $purchaseEvents->count(),
             'refunds' => $refundEvents->count(),
             'revenue_minor' => $revenueMinor,
+            'excluded_revenue_minor' => $excludedRevenueMinor,
+            'excluded_events' => $excludedPurchaseEvents->count() + $excludedRefundEvents->count(),
             'conversion_rate' => $assignmentCount > 0 ? round($convertingAssignments / $assignmentCount, 4) : 0.0,
             'revenue_per_visitor' => $assignmentCount > 0 ? round($revenueMinor / $assignmentCount, 2) : 0.0,
         ];

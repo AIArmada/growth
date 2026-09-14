@@ -66,9 +66,19 @@ final class DefaultRequestExperimentSubjectResolver implements RequestExperiment
             }
         }
 
-        $identity = (clone $query)
-            ->where('external_id', $userIdentifier)
-            ->first();
+        $fallbackQuery = (clone $query)->where('external_id', $userIdentifier);
+
+        if ($user instanceof Model) {
+            // External identifiers may collide across user types. Only match
+            // rows stamped for this user type, plus unstamped legacy rows.
+            $morphClass = $user->getMorphClass();
+
+            $fallbackQuery->where(static function (Builder $query) use ($morphClass): void {
+                $query->where('auth_user_type', $morphClass)->orWhereNull('auth_user_type');
+            });
+        }
+
+        $identity = $fallbackQuery->first();
 
         return $identity instanceof SignalIdentity ? $identity : null;
     }

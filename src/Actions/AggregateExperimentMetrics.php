@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AIArmada\Growth\Actions;
 
+use AIArmada\CommerceSupport\Support\ConnectionDriver;
 use AIArmada\CommerceSupport\Support\Filament\OwnerUiScope;
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\Growth\Enums\ResolveStrategy;
@@ -35,12 +36,18 @@ final class AggregateExperimentMetrics
     ) {}
 
     /**
+     * Aggregate one experiment with explicitly bounded row windows.
+     *
+     * Assignment and event rows are capped oldest-first at the configured
+     * `growth.metrics` limits; `truncated` reports when the window clipped.
+     *
      * @return array{
      *     experiment_id: string,
      *     currency: string,
      *     winner_metric: string,
+     *     truncated: bool,
      *     winner_variant_id: string|null,
-     *     totals: array{assignments: int, checkout_starts: int, purchases: int, refunds: int, revenue_minor: int},
+     *     totals: array{assignments: int, checkout_starts: int, purchases: int, refunds: int, revenue_minor: int, excluded_revenue_minor: int, excluded_events: int},
      *     variants: array<int, array<string, float|int|string|null>>
      * }
      */
@@ -58,12 +65,8 @@ final class AggregateExperimentMetrics
         $refundEventName = (string) config('growth.integrations.signals.refund_event_name', 'order.refunded');
         $experimentCurrency = $this->experimentCurrency($experiment);
         $variants = $this->variantQuery->forExperiment($experiment)->get()->sortBy('position')->values();
-        $assignments = $this->assignmentQuery->forExperiment($experiment)->get()->groupBy('variant_id');
-        $events = $this->signalEventQuery->forExperiment($experiment)
-            ->where('tracked_property_id', $experiment->tracked_property_id)
-            ->whereIn('event_name', [$checkoutStartedEventName, $purchaseEventName, $refundEventName])
-            ->orderBy('occurred_at')
-            ->get(['id', 'tracked_property_id', 'occurred_at', 'event_name', 'event_category', 'revenue_minor', 'currency', 'properties']);
+        [$assignments, $assignmentsTruncated] = $this->boundedAssignments($experiment);
+        [$events, $eventsTruncated] = $this->boundedEvents($experiment, $checkoutStartedEventName, $purchaseEventName, $refundEventName);
         $calculated = $this->metricsCalculator->calculate(
             experiment: $experiment,
             variants: $variants,
@@ -78,6 +81,7 @@ final class AggregateExperimentMetrics
             'experiment_id' => (string) $experiment->getKey(),
             'currency' => $experimentCurrency,
             'winner_metric' => (string) $experiment->winner_metric,
+            'truncated' => $assignmentsTruncated || $eventsTruncated,
             ...$calculated,
         ];
 
@@ -87,11 +91,64 @@ final class AggregateExperimentMetrics
     }
 
     /**
+     * @return array{0: Collection<int|string, EloquentCollection<int, Assignment>>, 1: bool}
+     */
+    private function boundedAssignments(Experiment $experiment): array
+    {
+        $cap = $this->maxAssignmentRows();
+
+        $rows = $this->assignmentQuery->forExperiment($experiment)
+            ->orderBy('assigned_at')
+            ->limit($cap + 1)
+            ->get();
+
+        $truncated = $rows->count() > $cap;
+
+        return [$rows->take($cap)->groupBy('variant_id'), $truncated];
+    }
+
+    /**
+     * @return array{0: Collection<int, SignalEvent>, 1: bool}
+     */
+    private function boundedEvents(
+        Experiment $experiment,
+        string $checkoutStartedEventName,
+        string $purchaseEventName,
+        string $refundEventName,
+    ): array {
+        $cap = $this->maxEventRows();
+
+        $rows = $this->signalEventQuery->forExperiment($experiment)
+            ->where('tracked_property_id', $experiment->tracked_property_id)
+            ->whereIn('event_name', [$checkoutStartedEventName, $purchaseEventName, $refundEventName])
+            ->orderBy('occurred_at')
+            ->limit($cap + 1)
+            ->get(['id', 'tracked_property_id', 'occurred_at', 'event_name', 'event_category', 'revenue_minor', 'currency', 'properties']);
+
+        $truncated = $rows->count() > $cap;
+
+        return [$rows->take($cap)->values(), $truncated];
+    }
+
+    private function maxAssignmentRows(): int
+    {
+        return max(1, (int) config('growth.metrics.max_assignment_rows', 50000));
+    }
+
+    private function maxEventRows(): int
+    {
+        return max(1, (int) config('growth.metrics.max_event_rows', 50000));
+    }
+
+    /**
      * Aggregate dashboard experiments with one batched child query.
      *
      * Variants, assignments, and signal events share one UNION query. The
      * dashboard owns the experiment list query, so this keeps ten experiment
      * cards at three SQL queries including tracked-property eager loading.
+     * Assignment and event legs are capped oldest-first at the configured
+     * `growth.metrics` limits; when either leg overflows, every result in the
+     * batch is flagged `truncated`.
      *
      * @param  EloquentCollection<int, Experiment>  $experiments
      * @return array{results: array<string, array<string, mixed>>, variant_count: int, assignment_count: int}
@@ -110,6 +167,11 @@ final class AggregateExperimentMetrics
 
         $eventNames = array_values(array_unique($eventNames));
         $rows = $this->loadBatchRows($experiments, $eventNames);
+        $assignmentCap = $this->maxAssignmentRows();
+        $eventCap = $this->maxEventRows();
+        $assignmentRows = 0;
+        $eventRows = 0;
+        $batchTruncated = false;
 
         $variants = collect();
         $assignments = collect();
@@ -129,6 +191,14 @@ final class AggregateExperimentMetrics
             }
 
             if ($row->recordType === 'assignment') {
+                $assignmentRows++;
+
+                if ($assignmentRows > $assignmentCap) {
+                    $batchTruncated = true;
+
+                    continue;
+                }
+
                 $assignments->push((new Assignment)->newFromBuilder([
                     'id' => $row->recordId,
                     'experiment_id' => $row->experimentId,
@@ -138,6 +208,16 @@ final class AggregateExperimentMetrics
                 ]));
 
                 continue;
+            }
+
+            if ($row->recordType === 'event') {
+                $eventRows++;
+
+                if ($eventRows > $eventCap) {
+                    $batchTruncated = true;
+
+                    continue;
+                }
             }
 
             $events->push((new SignalEvent)->newFromBuilder([
@@ -208,6 +288,7 @@ final class AggregateExperimentMetrics
                 'experiment_id' => $experimentId,
                 'currency' => (string) ($trackedProperty->currency ?? config('signals.defaults.currency', 'MYR')),
                 'winner_metric' => (string) $experiment->winner_metric,
+                'truncated' => $batchTruncated,
                 ...$calculated,
             ];
 
@@ -231,23 +312,23 @@ final class AggregateExperimentMetrics
         $variantTable = (new Variant)->getTable();
         $assignmentTable = (new Assignment)->getTable();
         $experimentIds = $experiments->pluck('id')->map(static fn (mixed $id): string => (string) $id)->all();
-        $signalsJsonColumnType = commerce_json_column_type('signals', 'jsonb');
+        $casts = $this->unionNullCasts();
         $variantQuery = OwnerUiScope::apply(Variant::query(), includeGlobal: false)
             ->whereIn($variantTable . '.experiment_id', $experimentIds)
             ->select([
                 DB::raw("'variant' AS record_type"),
                 $variantTable . '.id AS record_id',
                 $variantTable . '.experiment_id',
-                DB::raw('CAST(NULL AS uuid) AS tracked_property_id'),
+                DB::raw("{$casts['uuid']} AS tracked_property_id"),
                 DB::raw('NULL AS variant_id'),
                 DB::raw('NULL AS subject_key'),
                 DB::raw('NULL AS assigned_at'),
-                DB::raw('CAST(NULL AS timestamptz) AS occurred_at'),
+                DB::raw("{$casts['timestamptz']} AS occurred_at"),
                 DB::raw('NULL AS event_name'),
                 DB::raw('NULL AS event_category'),
-                DB::raw('CAST(NULL AS bigint) AS revenue_minor'),
+                DB::raw("{$casts['bigint']} AS revenue_minor"),
                 DB::raw('NULL AS currency'),
-                DB::raw("CAST(NULL AS {$signalsJsonColumnType}) AS properties"),
+                DB::raw("{$casts['json']} AS properties"),
                 $variantTable . '.code',
                 $variantTable . '.name',
                 $variantTable . '.position',
@@ -258,20 +339,24 @@ final class AggregateExperimentMetrics
                 DB::raw("'assignment' AS record_type"),
                 $assignmentTable . '.id AS record_id',
                 $assignmentTable . '.experiment_id',
-                DB::raw('CAST(NULL AS uuid) AS tracked_property_id'),
+                DB::raw("{$casts['uuid']} AS tracked_property_id"),
                 $assignmentTable . '.variant_id',
                 $assignmentTable . '.subject_key',
                 $assignmentTable . '.assigned_at',
-                DB::raw('CAST(NULL AS timestamptz) AS occurred_at'),
+                DB::raw("{$casts['timestamptz']} AS occurred_at"),
                 DB::raw('NULL AS event_name'),
                 DB::raw('NULL AS event_category'),
-                DB::raw('CAST(NULL AS bigint) AS revenue_minor'),
+                DB::raw("{$casts['bigint']} AS revenue_minor"),
                 DB::raw('NULL AS currency'),
-                DB::raw("CAST(NULL AS {$signalsJsonColumnType}) AS properties"),
+                DB::raw("{$casts['json']} AS properties"),
                 DB::raw('NULL AS code'),
                 DB::raw('NULL AS name'),
                 DB::raw('NULL AS position'),
-            ]);
+            ])
+            // Oldest-first explicit window; Laravel parenthesizes UNION legs so
+            // the limit binds to this leg on every supported driver.
+            ->orderBy($assignmentTable . '.assigned_at')
+            ->limit($this->maxAssignmentRows() + 1);
         $query = $variantQuery->toBase()->unionAll($assignmentQuery->toBase());
 
         $mapRow = static fn (stdClass $row): ExperimentMetricBatchRow => new ExperimentMetricBatchRow(
@@ -319,11 +404,54 @@ final class AggregateExperimentMetrics
                 DB::raw('NULL AS code'),
                 DB::raw('NULL AS name'),
                 DB::raw('NULL AS position'),
-            ]);
+            ])
+            ->orderBy($eventTable . '.occurred_at')
+            ->limit($this->maxEventRows() + 1);
 
         $query->unionAll($eventQuery->toBase());
 
         return $query->get()->map($mapRow);
+    }
+
+    /**
+     * UNION placeholder expressions per database driver.
+     *
+     * Postgres needs explicit casts for UNION column typing; MySQL supports a
+     * narrower cast set (and no JSON cast); SQLite is dynamically typed so a
+     * bare NULL is valid everywhere.
+     *
+     * @return array{uuid: string, timestamptz: string, bigint: string, json: string}
+     */
+    private function unionNullCasts(?string $driver = null): array
+    {
+        $driver ??= ConnectionDriver::name(DB::connection());
+
+        if ($driver === 'pgsql') {
+            $jsonType = commerce_json_column_type('signals', 'jsonb');
+
+            return [
+                'uuid' => 'CAST(NULL AS uuid)',
+                'timestamptz' => 'CAST(NULL AS timestamptz)',
+                'bigint' => 'CAST(NULL AS bigint)',
+                'json' => "CAST(NULL AS {$jsonType})",
+            ];
+        }
+
+        if ($driver === 'mysql') {
+            return [
+                'uuid' => 'CAST(NULL AS char(36))',
+                'timestamptz' => 'CAST(NULL AS datetime)',
+                'bigint' => 'CAST(NULL AS signed)',
+                'json' => 'NULL',
+            ];
+        }
+
+        return [
+            'uuid' => 'NULL',
+            'timestamptz' => 'NULL',
+            'bigint' => 'NULL',
+            'json' => 'NULL',
+        ];
     }
 
     private function resolveExperimentForCurrentScope(Experiment $experiment): Experiment
@@ -379,7 +507,7 @@ final class AggregateExperimentMetrics
     }
 
     /**
-     * @return array{experiment_id: string, currency: string, winner_metric: string, winner_variant_id: string|null, totals: array{assignments: int, checkout_starts: int, purchases: int, refunds: int, revenue_minor: int}, variants: array<int, array<string, float|int|string|null>>}|null
+     * @return array{experiment_id: string, currency: string, winner_metric: string, truncated: bool, winner_variant_id: string|null, totals: array{assignments: int, checkout_starts: int, purchases: int, refunds: int, revenue_minor: int, excluded_revenue_minor: int, excluded_events: int}, variants: array<int, array<string, float|int|string|null>>}|null
      */
     private function cachedResults(string $experimentId): ?array
     {
@@ -399,7 +527,7 @@ final class AggregateExperimentMetrics
     }
 
     /**
-     * @param  array{experiment_id: string, currency: string, winner_metric: string, winner_variant_id: string|null, totals: array{assignments: int, checkout_starts: int, purchases: int, refunds: int, revenue_minor: int}, variants: array<int, array<string, float|int|string|null>>}  $results
+     * @param  array{experiment_id: string, currency: string, winner_metric: string, truncated: bool, winner_variant_id: string|null, totals: array{assignments: int, checkout_starts: int, purchases: int, refunds: int, revenue_minor: int, excluded_revenue_minor: int, excluded_events: int}, variants: array<int, array<string, float|int|string|null>>}  $results
      */
     private function storeCachedResults(string $experimentId, array $results): void
     {

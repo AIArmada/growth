@@ -273,7 +273,9 @@ $results = OwnerContext::withOwner($store, function () use ($experiment): array 
 });
 ```
 
-The aggregator reads Signals events from the experiment's tracked property, counts purchase and refund events by event name, and only sums revenue from events whose currency matches the experiment property's currency.
+The aggregator reads Signals events from the experiment's tracked property, counts purchase and refund events by event name, and only sums revenue from events whose currency matches the experiment property's currency. Revenue in any other currency (or without a currency stamp) is not converted; it is reported separately as `excluded_revenue_minor` / `excluded_events` so totals reconcile.
+
+Assignment and event rows are read through bounded oldest-first windows (`growth.metrics.max_assignment_rows` / `growth.metrics.max_event_rows`, 50,000 each by default). When a window clips, the result is flagged with `truncated: true`. For dashboards, prefer the batched `handleMany()` path, which aggregates a whole experiment collection with one shared child query instead of one aggregation per experiment.
 
 Example response shape:
 
@@ -282,6 +284,7 @@ Example response shape:
     'experiment_id' => '...',
     'currency' => 'MYR',
     'winner_metric' => 'revenue_per_visitor',
+    'truncated' => false,
     'winner_variant_id' => '...',
     'totals' => [
         'assignments' => 128,
@@ -289,6 +292,8 @@ Example response shape:
         'purchases' => 21,
         'refunds' => 1,
         'revenue_minor' => 499000,
+        'excluded_revenue_minor' => 0,
+        'excluded_events' => 0,
     ],
     'variants' => [
         // per-variant metrics

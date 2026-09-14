@@ -37,15 +37,22 @@ class ExperimentResolver
                 $message,
             );
 
+            if ($strategy === ResolveStrategy::Readable && $resolvedExperiment->status !== ExperimentStatus::Active) {
+                throw new AuthorizationException($message);
+            }
+
             $this->assertTrackedPropertyMatchesExperimentOwner($resolvedExperiment, $message);
 
             return $resolvedExperiment;
         }
 
         if (! TrackedProperty::ownerScopeConfig()->enabled) {
-            $resolvedExperiment = Experiment::query()
-                ->whereKey($id)
-                ->first();
+            $query = Experiment::query()
+                ->whereKey($id);
+
+            $this->applyReadableFilter($query, $strategy);
+
+            $resolvedExperiment = $query->first();
 
             if (! $resolvedExperiment instanceof Experiment) {
                 throw new InvalidArgumentException($message);
@@ -58,8 +65,12 @@ class ExperimentResolver
 
         OwnerContext::assertResolvedOrExplicitGlobal($owner, $message);
 
-        $resolvedExperiment = Experiment::query()
-            ->whereKey($id)
+        $query = Experiment::query()
+            ->whereKey($id);
+
+        $this->applyReadableFilter($query, $strategy);
+
+        $resolvedExperiment = $query
             ->whereIn(
                 'tracked_property_id',
                 app(ScopeSignalQueryToOwner::class)

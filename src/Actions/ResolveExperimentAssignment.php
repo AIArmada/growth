@@ -6,10 +6,12 @@ namespace AIArmada\Growth\Actions;
 
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\CommerceSupport\Support\OwnerScopeConfig;
+use AIArmada\CommerceSupport\Support\OwnerScopeKey;
 use AIArmada\Growth\Enums\ExperimentStatus;
 use AIArmada\Growth\Models\Assignment;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
+use AIArmada\Growth\Support\AnonymousSubjectKey;
 use AIArmada\Growth\Support\Context\ExperimentResolver;
 use AIArmada\Growth\Support\Queries\AssignmentQuery;
 use AIArmada\Growth\Support\Queries\VariantQuery;
@@ -28,11 +30,18 @@ use InvalidArgumentException;
 
 final class ResolveExperimentAssignment
 {
-    private const SUBJECT_KEY_MAX_LENGTH = 255;
+    /**
+     * Run-scoped caches keyed by owner scope + experiment id.
+     *
+     * This resolver is never shared across requests or runs (transient
+     * container binding), so instance caches cannot leak between owners.
+     *
+     * @var array<string, Experiment>
+     */
+    private array $resolvedExperimentCache = [];
 
-    private const ANONYMOUS_SUBJECT_KEY_PREFIX = 'anonymous:';
-
-    private const HASHED_ANONYMOUS_SUBJECT_KEY_PREFIX = 'anonymous:sha256:';
+    /** @var array<string, EloquentCollection<int, Variant>> */
+    private array $activeVariantCache = [];
 
     public function handle(
         Experiment $experiment,
@@ -97,19 +106,7 @@ final class ResolveExperimentAssignment
 
     private function anonymousSubjectKey(string $anonymousId): ?string
     {
-        $normalizedAnonymousId = mb_trim($anonymousId);
-
-        if ($normalizedAnonymousId === '') {
-            return null;
-        }
-
-        $subjectKey = self::ANONYMOUS_SUBJECT_KEY_PREFIX . $normalizedAnonymousId;
-
-        if (mb_strlen($subjectKey) <= self::SUBJECT_KEY_MAX_LENGTH) {
-            return $subjectKey;
-        }
-
-        return self::HASHED_ANONYMOUS_SUBJECT_KEY_PREFIX . hash('sha256', $normalizedAnonymousId);
+        return AnonymousSubjectKey::make($anonymousId);
     }
 
     /**
@@ -247,6 +244,7 @@ final class ResolveExperimentAssignment
      */
     public function variantForSubject(Experiment $experiment, string $subjectKey): array
     {
+        $experiment = $this->cachedExperimentForCurrentOwner($experiment);
         $this->assertExperimentCanReceiveAssignments($experiment);
 
         if ($experiment->status !== ExperimentStatus::Active) {
@@ -256,14 +254,51 @@ final class ResolveExperimentAssignment
         return $this->pickVariant($experiment, $subjectKey);
     }
 
+    private function cachedExperimentForCurrentOwner(Experiment $experiment): Experiment
+    {
+        $cacheKey = $this->runCacheKey((string) $experiment->getKey());
+
+        if (! isset($this->resolvedExperimentCache[$cacheKey])) {
+            $this->resolvedExperimentCache[$cacheKey] = $this->resolveExperimentForCurrentOwner($experiment);
+        }
+
+        return $this->resolvedExperimentCache[$cacheKey];
+    }
+
+    /**
+     * @return EloquentCollection<int, Variant>
+     */
+    private function cachedActiveVariants(Experiment $experiment): EloquentCollection
+    {
+        $cacheKey = $this->runCacheKey((string) $experiment->getKey());
+
+        if (! isset($this->activeVariantCache[$cacheKey])) {
+            $this->activeVariantCache[$cacheKey] = $this->variantQuery($experiment)
+                ->active()
+                ->where('traffic_percentage', '>', 0)
+                ->orderBy('position')
+                ->orderBy('created_at')
+                ->get();
+        }
+
+        return $this->activeVariantCache[$cacheKey];
+    }
+
+    private function runCacheKey(string $experimentId): string
+    {
+        if (OwnerContext::isExplicitGlobal()) {
+            $scope = 'explicit-global';
+        } else {
+            $owner = OwnerContext::resolve();
+            $scope = $owner === null ? 'unresolved' : OwnerScopeKey::forOwner($owner);
+        }
+
+        return $scope . '|' . $experimentId;
+    }
+
     private function pickVariant(Experiment $experiment, string $subjectKey): array
     {
-        $variants = $this->variantQuery($experiment)
-            ->active()
-            ->where('traffic_percentage', '>', 0)
-            ->orderBy('position')
-            ->orderBy('created_at')
-            ->get();
+        $variants = $this->cachedActiveVariants($experiment);
 
         if ($variants->isEmpty()) {
             throw new InvalidArgumentException('At least one active variant with positive traffic is required.');

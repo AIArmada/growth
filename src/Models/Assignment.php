@@ -141,6 +141,14 @@ final class Assignment extends Model implements Auditable
                 throw new InvalidArgumentException('Assignment variant_id cannot be changed after creation.');
             }
 
+            // Timestamp and metadata touches (the hot last_seen_at path) cannot
+            // affect parent consistency; skip the multi-query revalidation.
+            $dirty = array_keys($assignment->getDirty());
+
+            if (count(array_diff($dirty, ['assigned_at', 'first_exposed_at', 'last_seen_at', 'metadata'])) === 0) {
+                return;
+            }
+
             $assignment->assertExperimentAndVariantConsistency();
         });
     }

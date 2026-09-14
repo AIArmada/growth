@@ -26,7 +26,7 @@ final class RecomputeExperimentAssignmentsCommand extends Command
     public function handle(): int
     {
         $dryRun = (bool) $this->option('dry-run');
-        $runner = new OwnerBatchRunner(Assignment::class, ['enabled' => 'commerce-support.owner.enabled']);
+        $runner = new OwnerBatchRunner(Assignment::class, ['enabled' => 'growth.features.owner.enabled']);
 
         $results = $runner->forEach(function () use ($dryRun): array {
             $counts = ['changed' => 0, 'quarantined' => 0, 'unchanged' => 0];

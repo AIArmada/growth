@@ -11,7 +11,9 @@ use AIArmada\Growth\Settings\GrowthSettings;
 use AIArmada\Growth\Support\Context\ExperimentContextManager;
 use AIArmada\Growth\Support\Context\ExperimentResolver;
 use Closure;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Spatie\LaravelSettings\Exceptions\MissingSettings;
 use Symfony\Component\HttpFoundation\Response;
@@ -41,6 +43,15 @@ final class ResolveExperiment
             $response = $next($request);
 
             return $response;
+        } catch (AuthorizationException $exception) {
+            // Fail closed deliberately: a cross-scope slug is a misconfiguration
+            // or probe, not a missing experiment, so it must stay loud.
+            Log::warning('Growth experiment middleware denied out-of-scope resolution.', [
+                'slug' => $experimentSlug ?? '',
+                'path' => $request->path(),
+            ]);
+
+            throw $exception;
         }
 
         if ($experiment->status !== ExperimentStatus::Active) {
