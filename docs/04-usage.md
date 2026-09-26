@@ -10,6 +10,7 @@ Experiments are tied to a Signals `TrackedProperty` and should be created inside
 
 ```php
 use AIArmada\CommerceSupport\Support\OwnerContext;
+use AIArmada\Growth\Enums\VariantStatus;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
 use AIArmada\Signals\Models\TrackedProperty;
@@ -31,7 +32,7 @@ $experiment = OwnerContext::withOwner($store, function () use ($trackedProperty)
         'traffic_percentage' => 50,
         'position' => 1,
         'is_control' => true,
-        'is_active' => true,
+        'status' => VariantStatus::Active->value,
     ]);
 
     Variant::query()->create([
@@ -41,12 +42,16 @@ $experiment = OwnerContext::withOwner($store, function () use ($trackedProperty)
         'traffic_percentage' => 50,
         'position' => 2,
         'is_control' => false,
-        'is_active' => true,
+        'status' => VariantStatus::Active->value,
     ]);
 
     return $experiment->fresh(['variants']) ?? $experiment;
 });
 ```
+
+Variants are lifecycle-driven through `status` (`draft`, `active`, `deactivated`, `retired`,
+`archived`) with `activated_at` / `deactivated_at` / `retired_at` / `archived_at` timestamps.
+There is no `is_active` column — setting one would be silently dropped by mass assignment.
 
 If `slug` is blank during creation, Growth fills it from `name` using `Str::slug()`. The slug remains an explicit route-facing identifier, so middleware usage should always reference the stored slug value directly.
 
@@ -151,8 +156,9 @@ if ($context?->isVariant('hero-b')) {
 }
 
 $variantCode = $context?->variantCode();
-$experimentSlug = $context?->slug;
+$experimentSlug = $context?->experimentSlug();
 $assignmentId = $context?->assignmentId();
+$isControl = $context?->isControl();
 ```
 
 Facade example:
@@ -377,7 +383,10 @@ Options:
 php artisan growth:recompute-assignments --dry-run
 ```
 
-The command picks a random active variant from the assignment's experiment for each orphaned record.
+The command re-derives the variant with the same canonical deterministic allocator the resolver
+uses (`ExperimentAssignmentResolver::variantForSubject()`) and rewrites `variant_id` and `bucket`.
+It does not pick a random active variant. Assignments whose parent experiment is missing or not
+`active`, or whose `subject_key` is empty, are skipped.
 
 ## Optional Filament admin UI
 

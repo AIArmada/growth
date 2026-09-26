@@ -12,7 +12,7 @@ All package options live in `config/growth.php`.
 return [
     'database' => [
         'table_prefix' => 'growth_',
-        'json_column_type' => commerce_json_column_type('growth', 'jsonb'),
+        'json_column_type' => env('GROWTH_JSON_COLUMN_TYPE', 'jsonb'),
         'tables' => [
             'experiments' => 'growth_experiments',
             'variants' => 'growth_variants',
@@ -28,9 +28,14 @@ return [
         ],
     ],
 
+    'metrics' => [
+        'max_assignment_rows' => 50000,
+        'max_event_rows' => 50000,
+    ],
+
     'features' => [
         'owner' => [
-            'enabled' => true,
+            'enabled' => false,
             'include_global' => false,
             'auto_assign_on_create' => true,
         ],
@@ -74,7 +79,11 @@ The table prefix used when a table name is not overridden in the `tables` map.
 
 ### `database.json_column_type`
 
-Controls the JSON column type used by growth migrations. Leave this as `commerce_json_column_type('growth', 'jsonb')` unless you need package-specific `jsonb` behavior on PostgreSQL.
+Defaults to `jsonb` and is read from `GROWTH_JSON_COLUMN_TYPE`. Migrations do not call
+`config('growth.database.json_column_type')` directly — they call
+`commerce_json_column_type('growth', 'jsonb')`, so `GROWTH_JSON_COLUMN_TYPE` and
+`COMMERCE_JSON_COLUMN_TYPE` take precedence over this key. Change this key only when the
+package config is authoritative (for example in tests that pin the value).
 
 ### `database.tables`
 
@@ -144,11 +153,13 @@ That makes the slug a stable route-facing identifier without turning it into a s
 Owner scoping controls for growth models:
 
 ```php
-'owner' => [
-            'enabled' => false,
-            'include_global' => false,
-            'auto_assign_on_create' => true,
-        ],
+'features' => [
+    'owner' => [
+        'enabled' => false,
+        'include_global' => false,
+        'auto_assign_on_create' => true,
+    ],
+],
 ```
 
 - `enabled`: apply owner scoping to `Experiment`, `Variant`, and `Assignment`
@@ -244,7 +255,7 @@ The built-in resolver does **not** need this key when `session_identifier_source
 return [
     'database' => [
         'table_prefix' => 'growth_',
-        'json_column_type' => commerce_json_column_type('growth', 'jsonb'),
+        'json_column_type' => 'jsonb',
         'tables' => [
             'experiments' => 'growth_experiments',
             'variants' => 'growth_variants',
