@@ -36,7 +36,7 @@ The `aiarmada/growth` package owns experimentation primitives for the Commerce e
 
 ## Owner scoping and security notes
 
-- Experiments, variants, and assignments support owner scoping, disabled by default (`growth.features.owner.enabled` ships as `false`)
+- Experiments, variants, and assignments are owner-scoped by default
 - Request-scoped experiment context should remain explicit for jobs, commands, or cross-owner reporting flows
 - Signals enrichment should be treated as contextual analytics metadata, not authorization
 
@@ -80,7 +80,7 @@ The main runtime flows are:
 
 ## Package features
 
-- Optional owner scoping for experiments, variants, and assignments (off by default)
+- Owner-scoped experiments, variants, and assignments by default
 - Sticky assignment resolution for identities, sessions, and anonymous visitors
 - Optional HTTP middleware that resolves an active experiment by explicit slug and stores request-scoped variant context
 - Global `experiment()` helper and `Growth` facade for the current request context

@@ -47,4 +47,4 @@ keywords:
 
 ## Docs map
 - Start: `01-overview` → `03-configuration` → `04-usage` → `99-troubleshooting`
-- Deep dives: `v2.md`
+- Deep dives: none — the five canonical docs cover this package
