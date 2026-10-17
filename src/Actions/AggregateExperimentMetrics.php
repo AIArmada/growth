@@ -23,6 +23,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use stdClass;
 
 final class AggregateExperimentMetrics
@@ -416,9 +417,8 @@ final class AggregateExperimentMetrics
     /**
      * UNION placeholder expressions per database driver.
      *
-     * Postgres needs explicit casts for UNION column typing; MySQL supports a
-     * narrower cast set (and no JSON cast); SQLite is dynamically typed so a
-     * bare NULL is valid everywhere.
+     * PostgreSQL needs explicit casts for UNION column typing; SQLite is
+     * dynamically typed so a bare NULL is valid.
      *
      * @return array{uuid: string, timestamptz: string, bigint: string, json: string}
      */
@@ -437,21 +437,16 @@ final class AggregateExperimentMetrics
             ];
         }
 
-        if ($driver === 'mysql') {
+        if ($driver === 'sqlite' || $driver === 'sqlsrv') {
             return [
-                'uuid' => 'CAST(NULL AS char(36))',
-                'timestamptz' => 'CAST(NULL AS datetime)',
-                'bigint' => 'CAST(NULL AS signed)',
+                'uuid' => 'NULL',
+                'timestamptz' => 'NULL',
+                'bigint' => 'NULL',
                 'json' => 'NULL',
             ];
         }
 
-        return [
-            'uuid' => 'NULL',
-            'timestamptz' => 'NULL',
-            'bigint' => 'NULL',
-            'json' => 'NULL',
-        ];
+        throw new RuntimeException("Unsupported database driver [{$driver}] for experiment metric aggregation.");
     }
 
     private function resolveExperimentForCurrentScope(Experiment $experiment): Experiment
