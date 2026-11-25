@@ -345,17 +345,14 @@ final class Experiment extends Model implements Auditable
 
     protected static function resolveOwnerScopeKey(Model $model): string
     {
-        if (static::resolveOwnerScopeConfig()->enabled || TrackedProperty::ownerScopeConfig()->enabled) {
-            return static::resolveBaseOwnerScopeKey($model);
+        if (! static::resolveOwnerScopeConfig()->enabled
+            && TrackedProperty::ownerScopeConfig()->enabled
+            && $model->getAttribute(static::ownerTypeColumnName()) === null
+            && $model->getAttribute(static::ownerIdColumnName()) === null) {
+            return OwnerScopeKey::forOwner(OwnerContext::resolve());
         }
 
-        $ownerType = $model->getAttribute(static::ownerTypeColumnName());
-        $ownerId = $model->getAttribute(static::ownerIdColumnName());
-
-        return OwnerScopeKey::forTypeAndId(
-            is_string($ownerType) ? $ownerType : null,
-            is_int($ownerId) || is_string($ownerId) ? $ownerId : null,
-        );
+        return static::resolveBaseOwnerScopeKey($model);
     }
 
     /**

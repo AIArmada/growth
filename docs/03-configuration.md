@@ -146,6 +146,7 @@ Growth keeps experiment slugs explicit and lightweight:
 
 - if `slug` is blank during creation, the model fills it from `name` using `Str::slug()`
 - slugs remain unique per `owner_scope` at the database level
+- when Growth owner scoping is disabled and Signals owner scoping is enabled, ownerless experiments use the validated tracked property's owner context for slug uniqueness
 - the HTTP middleware expects the exact slug you pass in `growth.experiment:{slug}`
 - Growth does **not** use Spatie Sluggable or automatic route-model binding for experiments
 
