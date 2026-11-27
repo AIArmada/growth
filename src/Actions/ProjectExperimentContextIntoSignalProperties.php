@@ -8,7 +8,7 @@ use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Support\ExperimentAssignmentResolver;
 use AIArmada\Growth\Support\ExperimentContextMerger;
-use AIArmada\Signals\Models\TrackedProperty;
+use AIArmada\Signals\Features\Ingestion\Models\TrackedProperty;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;

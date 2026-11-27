@@ -7,7 +7,7 @@ namespace AIArmada\Growth\Support;
 use AIArmada\Growth\Models\Assignment;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
-use AIArmada\Signals\Models\SignalEvent;
+use AIArmada\Signals\Features\Ingestion\Models\SignalEvent;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 

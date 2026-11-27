@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace AIArmada\Growth\Support\Request;
 
-use AIArmada\Signals\Models\SignalIdentity;
-use AIArmada\Signals\Models\SignalSession;
+use AIArmada\Signals\Features\Ingestion\Models\SignalIdentity;
+use AIArmada\Signals\Features\Ingestion\Models\SignalSession;
 
 final readonly class RequestExperimentSubjects
 {

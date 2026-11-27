@@ -7,8 +7,8 @@ namespace AIArmada\Growth\Support\Queries;
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\Growth\Actions\ScopeSignalQueryToOwner;
 use AIArmada\Growth\Models\Experiment;
-use AIArmada\Signals\Models\SignalEvent;
-use AIArmada\Signals\Models\TrackedProperty;
+use AIArmada\Signals\Features\Ingestion\Models\SignalEvent;
+use AIArmada\Signals\Features\Ingestion\Models\TrackedProperty;
 use Illuminate\Database\Eloquent\Builder;
 
 final class SignalEventQuery

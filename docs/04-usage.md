@@ -13,7 +13,7 @@ use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\Growth\Enums\VariantStatus;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
-use AIArmada\Signals\Models\TrackedProperty;
+use AIArmada\Signals\Features\Ingestion\Models\TrackedProperty;
 
 $experiment = OwnerContext::withOwner($store, function () use ($trackedProperty): Experiment {
     /** @var Experiment $experiment */
@@ -79,8 +79,8 @@ Use `ResolveExperimentAssignment` to allocate a subject to a variant.
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\Growth\Actions\ResolveExperimentAssignment;
 use AIArmada\Growth\Models\Experiment;
-use AIArmada\Signals\Models\SignalIdentity;
-use AIArmada\Signals\Models\SignalSession;
+use AIArmada\Signals\Features\Ingestion\Models\SignalIdentity;
+use AIArmada\Signals\Features\Ingestion\Models\SignalSession;
 
 $assignment = OwnerContext::withOwner($store, function () use ($experiment, $identity, $session) {
     return app(ResolveExperimentAssignment::class)->handle(

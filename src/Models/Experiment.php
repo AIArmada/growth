@@ -17,7 +17,7 @@ use AIArmada\Growth\Actions\ResolveExperimentPreset;
 use AIArmada\Growth\Actions\ScopeSignalQueryToOwner;
 use AIArmada\Growth\Enums\ExperimentModuleType;
 use AIArmada\Growth\Enums\ExperimentStatus;
-use AIArmada\Signals\Models\TrackedProperty;
+use AIArmada\Signals\Features\Ingestion\Models\TrackedProperty;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;

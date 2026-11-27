@@ -69,7 +69,7 @@ Example owner-scoped creation:
 ```php
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\Growth\Models\Experiment;
-use AIArmada\Signals\Models\TrackedProperty;
+use AIArmada\Signals\Features\Ingestion\Models\TrackedProperty;
 
 $experiment = OwnerContext::withOwner($store, function () use ($trackedProperty): Experiment {
     return Experiment::query()->create([

@@ -13,7 +13,7 @@ use AIArmada\Growth\Actions\ScopeSignalQueryToOwner;
 use AIArmada\Growth\Enums\ExperimentStatus;
 use AIArmada\Growth\Enums\ResolveStrategy;
 use AIArmada\Growth\Models\Experiment;
-use AIArmada\Signals\Models\TrackedProperty;
+use AIArmada\Signals\Features\Ingestion\Models\TrackedProperty;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use InvalidArgumentException;
