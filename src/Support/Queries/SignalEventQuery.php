@@ -18,20 +18,22 @@ final class SignalEventQuery
      */
     public function forExperiment(Experiment $experiment): Builder
     {
+        $query = SignalEvent::query()->where('tracked_property_id', $experiment->tracked_property_id);
+
         if (! SignalEvent::ownerScopeConfig()->enabled && ! Experiment::ownerScopeConfig()->enabled) {
-            return SignalEvent::query();
+            return $query;
         }
 
         $trackedProperty = $experiment->trackedProperty;
 
         if (! $trackedProperty instanceof TrackedProperty) {
-            return SignalEvent::query()->whereKey([]);
+            return $query->whereKey([]);
         }
 
         $owner = OwnerContext::fromTypeAndId($trackedProperty->owner_type, $trackedProperty->owner_id);
 
         return app(ScopeSignalQueryToOwner::class)->handle(
-            SignalEvent::query(),
+            $query,
             $owner,
             includeGlobal: false,
         );

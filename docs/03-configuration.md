@@ -216,7 +216,7 @@ The class must implement `AIArmada\Growth\Contracts\RequestExperimentSubjectReso
 
 Leave this as `null` to use the built-in resolver.
 
-When the built-in resolver sees an active Signals browser context, it prefers that context before looking at the configured cookie or header keys manually.
+When the built-in resolver sees an active Signals browser context on the supplied request, it prefers that context before looking at the configured cookie or header keys manually. It never reads a different container request; pass the request you want resolved.
 
 ### `http.experiment_middleware.anonymous_id_source`
 

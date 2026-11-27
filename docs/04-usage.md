@@ -281,7 +281,7 @@ $results = OwnerContext::withOwner($store, function () use ($experiment): array 
 
 The aggregator reads Signals events from the experiment's tracked property, counts purchase and refund events by event name, and only sums revenue from events whose currency matches the experiment property's currency. Revenue in any other currency (or without a currency stamp) is not converted; it is reported separately as `excluded_revenue_minor` / `excluded_events` so totals reconcile.
 
-Assignment and event rows are read through bounded oldest-first windows (`growth.metrics.max_assignment_rows` / `growth.metrics.max_event_rows`, 50,000 each by default). When a window clips, the result is flagged with `truncated: true`. For dashboards, prefer the batched `handleMany()` path, which aggregates a whole experiment collection with one shared child query instead of one aggregation per experiment.
+Assignment and event rows are read through bounded oldest-first windows (`growth.metrics.max_assignment_rows` / `growth.metrics.max_event_rows`, 50,000 each by default). When a window clips, the result is flagged with `truncated: true`. For dashboards, prefer the batched `handleMany()` path, which aggregates a whole experiment collection with one shared child query instead of one aggregation per experiment. The shared assignment and event caps are applied across the whole batch, and `variant_count` / `assignment_count` report the rows actually included in that batch. A repeated identical batch request in the same HTTP request reuses its own snapshot; batch snapshots, including truncated ones, never seed the independently scoped single-experiment cache.
 
 Example response shape:
 

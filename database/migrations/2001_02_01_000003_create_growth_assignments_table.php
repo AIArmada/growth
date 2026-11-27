@@ -31,6 +31,7 @@ return new class extends Migration
             $table->unique(['experiment_id', 'signal_identity_id']);
             $table->unique(['experiment_id', 'signal_session_id']);
             $table->index(['experiment_id', 'variant_id']);
+            $table->index(['experiment_id', 'assigned_at', 'id']);
         });
     }
 };

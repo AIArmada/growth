@@ -10,9 +10,10 @@ use AIArmada\Growth\Contracts\RequestExperimentSubjectResolver;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Support\Request\RequestExperimentSubjects;
 use AIArmada\Signals\Data\SignalsBrowserContext;
-use AIArmada\Signals\Features\Browser\EntryPoints\Http\SignalsBrowserContextManager;
 use AIArmada\Signals\Features\Ingestion\Models\SignalIdentity;
 use AIArmada\Signals\Features\Ingestion\Models\SignalSession;
+use AIArmada\Signals\Support\Http\SignalsBrowserContextManager;
+use AIArmada\Signals\Support\SignalIdentifier;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -154,17 +155,7 @@ final class DefaultRequestExperimentSubjectResolver implements RequestExperiment
     {
         $user = $request->user();
 
-        if ($user instanceof Authenticatable) {
-            return $user;
-        }
-
-        try {
-            $resolved = auth()->user();
-
-            return $resolved instanceof Authenticatable ? $resolved : null;
-        } catch (Throwable) {
-            return null;
-        }
+        return $user instanceof Authenticatable ? $user : null;
     }
 
     private function resolveLaravelSessionIdentifier(Request $request): ?string
@@ -182,13 +173,7 @@ final class DefaultRequestExperimentSubjectResolver implements RequestExperiment
 
     private function stringValue(mixed $value): ?string
     {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $normalized = mb_trim((string) $value);
-
-        return $normalized === '' ? null : $normalized;
+        return SignalIdentifier::normalize($value);
     }
 
     private function resolveAnonymousIdSource(): string
