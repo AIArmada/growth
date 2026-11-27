@@ -48,11 +48,17 @@ If you enable the middleware, review the request subject settings under `growth.
 - anonymous visitors are identified by a cookie named `sig_vid`
 - session matching uses a cookie named `sig_sid`
 - if Signals browser integration is enabled, the resolver reuses the current `SignalsBrowserContext` automatically
-- authenticated users are matched to `SignalIdentity` by `auth_user_type + auth_user_id`, then by `external_id`
+- authenticated users are matched to `SignalIdentity` strictly by `auth_user_type + auth_user_id`; `external_id` is never used as an authentication fallback
 
 If you prefer classic Laravel session ids instead of the Signals browser cookies, set `growth.http.experiment_middleware.session_identifier_source` to `laravel`.
 
 The global `experiment()` helper, `Growth` facade, and Livewire concern do not require extra setup beyond the package booting, but they only return data after an experiment context has been placed on the current request.
+
+## Upgrade notes
+
+- Authenticated experiment subjects now require a typed `SignalIdentity` row with matching `auth_user_type` and `auth_user_id`. The previous `external_id` fallback is removed; backfill both columns before relying on authenticated attribution.
+- When owner scoping is enabled, `UpdateGrowthSettings` is a global write. Call it inside `OwnerContext::withOwner(null, ...)`; the Filament settings page requires that context and the `growth.settings.manage` permission.
+- Browser page properties are now composed through Signals' `BrowserPagePropertyContributor` contract and `BrowserPagePropertyRegistry`. Custom integrations should register a contributor instead of replacing the `BrowserPageProperties` binding.
 
 ## Owner scoping setup
 

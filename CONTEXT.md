@@ -18,7 +18,7 @@ keywords:
 - Composer: `aiarmada/growth`
 - Role: Revenue experimentation: experiments/variants, sticky assignments, presets, winner metrics on Signals.
 - Triggers: experiment, ab-test, variant, assignment, preset
-- Search first: `src/Models, src/Actions, config, docs`
+- Search first: `src/Models, src/Actions, src/Queries, src/EntryPoints, config, docs`
 - Related: `filament-growth`, `signals`
 - Paired: `filament-growth` (Filament admin adapter)
 
@@ -42,7 +42,9 @@ keywords:
 
 ## Key surfaces
 - Models: `Assignment`, `Experiment`, `Variant`
-- Actions/Services: `Actions/AggregateExperimentMetrics`, `Actions/BuildExperimentSignalProperties`, `Actions/ProjectExperimentContextIntoSignalProperties`, `Actions/RepairExperimentAssignment`, `Actions/ResolveExperimentAssignment`, `Actions/ResolveExperimentPreset`, `Actions/ScopeSignalQueryToOwner`, `Support/Context/ExperimentContext`
+- Actions/Services: `Actions/AggregateExperimentMetrics`, `Actions/BuildExperimentSignalProperties`, `Actions/ProjectExperimentContextIntoSignalProperties`, `Actions/RepairExperimentAssignment`, `Actions/ResolveExperimentAssignment`, `Actions/ResolveExperimentPreset`, `Actions/SaveExperiment`, `Actions/SaveVariant`, `Actions/UpdateGrowthSettings`
+- Queries: `Queries/ScopeSignalQueryToOwner`, `Queries/ExperimentOwnership`, `Queries/ExperimentResolver`, `Queries/ExperimentAssignmentResolver`, `Queries/MetricsCalculator`
+- Runtime: `EntryPoints/Http`, `EntryPoints/Commands`, `EntryPoints/Livewire`, `Support/Context/ExperimentContext`
 - Config `growth.php`: `database`, `table_prefix`, `json_column_type`, `tables`, `experiments`, `variants`, `assignments`, `defaults`, `module_type`, `winner_metric`
 
 ## Docs map

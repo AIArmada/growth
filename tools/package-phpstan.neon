@@ -1,0 +1,16 @@
+parameters:
+    customRulesetUsed: true
+    configDirectories:
+        - %currentWorkingDirectory%/config
+    paths:
+        - ../src
+        - ../config
+    tmpDir: ../../../build/phpstan-arch-growth
+
+services:
+    -
+        class: PackageArchitecture\StaticAnalysis\PackageOwnedWriteRule
+        arguments:
+            projectRoot: null
+        tags:
+            - phpstan.rules.rule

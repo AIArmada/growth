@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace AIArmada\Growth\Actions;
 
 use AIArmada\CommerceSupport\Support\OwnerContext;
+use AIArmada\CommerceSupport\Support\OwnerQuery;
+use AIArmada\CommerceSupport\Support\OwnerScope;
 use AIArmada\CommerceSupport\Support\OwnerWriteGuard;
 use AIArmada\Growth\Enums\ResolveStrategy;
 use AIArmada\Growth\Models\Assignment;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
-use AIArmada\Growth\Support\Context\ExperimentResolver;
+use AIArmada\Growth\Queries\ExperimentResolver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +20,8 @@ use InvalidArgumentException;
 
 final class BuildExperimentSignalProperties
 {
+    public function __construct(private readonly ExperimentResolver $experimentResolver) {}
+
     /**
      * @return array<string, string>
      */
@@ -120,7 +124,7 @@ final class BuildExperimentSignalProperties
             throw new InvalidArgumentException('Assignment experiment context could not be resolved.');
         }
 
-        $accessibleExperiment = app(ExperimentResolver::class)->resolve(
+        $accessibleExperiment = $this->experimentResolver->resolve(
             (string) $experiment->getKey(),
             ResolveStrategy::Readable,
             'Assignment is not accessible in the current owner scope.',
@@ -153,7 +157,7 @@ final class BuildExperimentSignalProperties
             return null;
         }
 
-        return app(ExperimentResolver::class)->resolve(
+        return $this->experimentResolver->resolve(
             (string) $experiment->getKey(),
             ResolveStrategy::Readable,
             'Assignment is not accessible in the current owner scope.',
@@ -201,13 +205,13 @@ final class BuildExperimentSignalProperties
 
         $owner = OwnerContext::fromTypeAndId($assignment->owner_type, $assignment->owner_id);
 
-        if ($owner === null) {
-            /** @phpstan-ignore-next-line dynamic Eloquent scope */
-            return $query->globalOnly();
-        }
-
-        /** @phpstan-ignore-next-line dynamic Eloquent scope */
-        return $query->forOwner($owner, includeGlobal: false);
+        return OwnerQuery::applyToEloquentBuilder(
+            $query->withoutGlobalScope(OwnerScope::class),
+            $owner,
+            false,
+            $config->ownerTypeColumn,
+            $config->ownerIdColumn,
+        );
     }
 
     private function matchesAssignmentOwner(Assignment $assignment, Model $model): bool

@@ -8,16 +8,17 @@ use AIArmada\CommerceSupport\Support\ConnectionDriver;
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\CommerceSupport\Support\OwnerScope;
 use AIArmada\CommerceSupport\Support\OwnerScopeKey;
+use AIArmada\Growth\Data\ExperimentMetricBatchRow;
 use AIArmada\Growth\Enums\ResolveStrategy;
 use AIArmada\Growth\Models\Assignment;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
-use AIArmada\Growth\Support\Context\ExperimentResolver;
-use AIArmada\Growth\Support\ExperimentMetricBatchRow;
-use AIArmada\Growth\Support\MetricsCalculator;
-use AIArmada\Growth\Support\Queries\AssignmentQuery;
-use AIArmada\Growth\Support\Queries\SignalEventQuery;
-use AIArmada\Growth\Support\Queries\VariantQuery;
+use AIArmada\Growth\Queries\AssignmentQuery;
+use AIArmada\Growth\Queries\ExperimentResolver;
+use AIArmada\Growth\Queries\MetricsCalculator;
+use AIArmada\Growth\Queries\ScopeSignalQueryToOwner;
+use AIArmada\Growth\Queries\SignalEventQuery;
+use AIArmada\Growth\Queries\VariantQuery;
 use AIArmada\Signals\Features\Ingestion\Models\SignalEvent;
 use AIArmada\Signals\Features\Ingestion\Models\TrackedProperty;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -39,6 +40,7 @@ final class AggregateExperimentMetrics
         private readonly AssignmentQuery $assignmentQuery,
         private readonly SignalEventQuery $signalEventQuery,
         private readonly MetricsCalculator $metricsCalculator,
+        private readonly ScopeSignalQueryToOwner $scopeSignalQueryToOwner,
     ) {}
 
     /**
@@ -60,7 +62,8 @@ final class AggregateExperimentMetrics
     public function handle(Experiment $experiment): array
     {
         $experiment = $this->resolveExperimentForCurrentScope($experiment);
-        $cachedResults = $this->cachedResults((string) $experiment->getKey());
+        $cacheKey = $this->resultsCacheKey($experiment);
+        $cachedResults = $this->cachedResults($cacheKey);
 
         if (is_array($cachedResults)) {
             return $cachedResults;
@@ -91,7 +94,7 @@ final class AggregateExperimentMetrics
             ...$calculated,
         ];
 
-        $this->storeCachedResults((string) $experiment->getKey(), $results);
+        $this->storeCachedResults($cacheKey, $results);
 
         return $results;
     }
@@ -107,7 +110,7 @@ final class AggregateExperimentMetrics
             ->orderBy('assigned_at')
             ->orderBy('id')
             ->limit($cap + 1)
-            ->get();
+            ->get(['id', 'experiment_id', 'variant_id', 'assigned_at']);
 
         $truncated = $rows->count() > $cap;
 
@@ -162,6 +165,10 @@ final class AggregateExperimentMetrics
      */
     public function handleMany(EloquentCollection $experiments): array
     {
+        if ($experiments->isEmpty()) {
+            return ['results' => [], 'variant_count' => 0, 'assignment_count' => 0];
+        }
+
         $experiments = $experiments->map(static fn (Experiment $experiment): Experiment => clone $experiment);
         $experiments->loadMissing('trackedProperty');
         $this->reloadMissingTrackedProperties($experiments);
@@ -264,6 +271,16 @@ final class AggregateExperimentMetrics
             static fn (SignalEvent $event): string => (string) $event->tracked_property_id,
         );
 
+        $experimentIdsByTrackedProperty = $experiments->groupBy(
+            static fn (Experiment $experiment): string => (string) $experiment->tracked_property_id,
+        )->map(static fn (Collection $propertyExperiments): array => $propertyExperiments
+            ->map(static fn (Experiment $experiment): string => (string) $experiment->getKey())
+            ->values()
+            ->all());
+
+        /** @var array<string, array<string, Collection<string, Collection<int, array{event: SignalEvent, context: array{experiment_id: string, variant_id: string, assignment_id?: string}}>>>> $groupedEventsByTrackedProperty */
+        $groupedEventsByTrackedProperty = [];
+
         /** @var array<string, array<string, mixed>> $results */
         $results = [];
 
@@ -280,18 +297,29 @@ final class AggregateExperimentMetrics
             $experimentVariants = $variantsByExperiment->get($experimentId, collect())->sortBy('position')->values();
             /** @var Collection<string, Collection<int, Assignment>> $experimentAssignments */
             $experimentAssignments = $assignmentsByExperiment->get($experimentId, collect());
-            /** @var Collection<int, SignalEvent> $experimentEvents */
-            $experimentEvents = $eventsByTrackedProperty->get((string) $experiment->tracked_property_id, collect());
+            $trackedPropertyId = (string) $experiment->tracked_property_id;
+
+            if (! isset($groupedEventsByTrackedProperty[$trackedPropertyId])) {
+                /** @var Collection<int, SignalEvent> $propertyEvents */
+                $propertyEvents = $eventsByTrackedProperty->get($trackedPropertyId, collect());
+                $groupedEventsByTrackedProperty[$trackedPropertyId] = $this->metricsCalculator->indexEventsByVariantForExperiments(
+                    $propertyEvents,
+                    $experimentIdsByTrackedProperty->get($trackedPropertyId, []),
+                );
+            }
+
+            $groupedEvents = $groupedEventsByTrackedProperty[$trackedPropertyId][$experimentId] ?? collect();
 
             $calculated = $this->metricsCalculator->calculate(
                 experiment: $experiment,
                 variants: $experimentVariants,
                 assignments: $experimentAssignments,
-                events: $experimentEvents,
+                events: collect(),
                 experimentCurrency: (string) ($trackedProperty->currency ?? config('signals.defaults.currency', 'MYR')),
                 checkoutStartedEventName: $checkoutStartedEventName,
                 purchaseEventName: $purchaseEventName,
                 refundEventName: $refundEventName,
+                groupedEvents: $groupedEvents,
             );
             $results[$experimentId] = [
                 'experiment_id' => $experimentId,
@@ -754,7 +782,7 @@ final class AggregateExperimentMetrics
     {
         $resolvedExperiment = $this->experimentResolver->resolve(
             (string) $experiment->getKey(),
-            ResolveStrategy::Readable,
+            ResolveStrategy::Accessible,
             'Growth experiment is not accessible in the current owner scope.',
         );
         $trackedProperty = $this->resolveTrackedPropertyForExperiment($resolvedExperiment);
@@ -789,7 +817,7 @@ final class AggregateExperimentMetrics
             );
         }
 
-        $trackedProperty = app(ScopeSignalQueryToOwner::class)
+        $trackedProperty = $this->scopeSignalQueryToOwner
             ->handle(TrackedProperty::query(), $owner, TrackedProperty::ownerScopeConfig()->includeGlobal)
             ->whereKey($trackedPropertyId)
             ->first();
@@ -802,10 +830,20 @@ final class AggregateExperimentMetrics
         return (string) ($experiment->trackedProperty?->currency ?? config('signals.defaults.currency', 'MYR'));
     }
 
+    private function resultsCacheKey(Experiment $experiment): string
+    {
+        return hash('sha256', implode('|', [
+            OwnerScopeKey::forOwner(OwnerContext::resolve()),
+            $this->maxAssignmentRows(),
+            $this->maxEventRows(),
+            (string) $experiment->getKey(),
+        ]));
+    }
+
     /**
      * @return array{experiment_id: string, currency: string, winner_metric: string, truncated: bool, winner_variant_id: string|null, totals: array{assignments: int, checkout_starts: int, purchases: int, refunds: int, revenue_minor: int, excluded_revenue_minor: int, excluded_events: int}, variants: array<int, array<string, float|int|string|null>>}|null
      */
-    private function cachedResults(string $experimentId): ?array
+    private function cachedResults(string $cacheKey): ?array
     {
         if (app()->runningInConsole() || ! app()->bound('request')) {
             return null;
@@ -817,7 +855,7 @@ final class AggregateExperimentMetrics
             return null;
         }
 
-        $cachedResults = $cache[$experimentId] ?? null;
+        $cachedResults = $cache[$cacheKey] ?? null;
 
         return is_array($cachedResults) ? $cachedResults : null;
     }
@@ -825,7 +863,7 @@ final class AggregateExperimentMetrics
     /**
      * @param  array{experiment_id: string, currency: string, winner_metric: string, truncated: bool, winner_variant_id: string|null, totals: array{assignments: int, checkout_starts: int, purchases: int, refunds: int, revenue_minor: int, excluded_revenue_minor: int, excluded_events: int}, variants: array<int, array<string, float|int|string|null>>}  $results
      */
-    private function storeCachedResults(string $experimentId, array $results): void
+    private function storeCachedResults(string $cacheKey, array $results): void
     {
         if (app()->runningInConsole() || ! app()->bound('request')) {
             return;
@@ -833,7 +871,7 @@ final class AggregateExperimentMetrics
 
         $cache = request()->attributes->get('growth.aggregate_metrics', []);
         $cache = is_array($cache) ? $cache : [];
-        $cache[$experimentId] = $results;
+        $cache[$cacheKey] = $results;
         request()->attributes->set('growth.aggregate_metrics', $cache);
     }
 }

@@ -32,6 +32,7 @@ The `aiarmada/growth` package owns experimentation primitives for the Commerce e
 - **Models** — `Experiment`, `Variant`, `Assignment`
 - **Runtime surfaces** — middleware, helper, facade, Blade directives, Livewire concern, and event-property enrichment
 - **Console commands** — `growth:archive-experiments` and `growth:recompute-assignments`
+- **Administrative actions** — `SaveExperiment`, `SaveVariant`, and `UpdateGrowthSettings` own durable changes; `ExperimentOwnership` supplies shared read and write scopes.
 - **Reporting surface** — `AggregateExperimentMetrics` and winner-ready result summaries
 
 ## Owner scoping and security notes
@@ -97,21 +98,19 @@ The main runtime flows are:
 
 ## Directory structure
 
-```
+```text
 src/
-├── Console/
-│   └── Commands/
-│       ├── ArchiveExperimentsCommand.php
-│       └── RecomputeExperimentAssignmentsCommand.php
-├── Support/
-│   ├── Context/
-│   │   ├── ExperimentContext.php
-│   │   ├── ExperimentContextManager.php
-│   │   └── ExperimentResolver.php
-│   ├── Request/
-│   │   └── RequestExperimentSubjects.php
-│   └── …
-└── ─ ─
+├── Actions/        # Owner-safe writes, assignment resolution and maintenance
+├── Data/           # Immutable metric rows
+├── EntryPoints/    # Commands, HTTP middleware and Livewire concerns
+├── Enums/
+├── Facades/
+├── Models/         # Experiment, Variant, Assignment
+├── Queries/        # Owner-aware read paths and calculations
+├── Settings/
+├── Support/        # Request context and pure supporting logic
+├── GrowthServiceProvider.php
+└── helpers.php
 ```
 
 ## Related packages

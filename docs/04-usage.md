@@ -10,14 +10,14 @@ Experiments are tied to a Signals `TrackedProperty` and should be created inside
 
 ```php
 use AIArmada\CommerceSupport\Support\OwnerContext;
+use AIArmada\Growth\Actions\SaveExperiment;
+use AIArmada\Growth\Actions\SaveVariant;
 use AIArmada\Growth\Enums\VariantStatus;
 use AIArmada\Growth\Models\Experiment;
-use AIArmada\Growth\Models\Variant;
-use AIArmada\Signals\Features\Ingestion\Models\TrackedProperty;
 
 $experiment = OwnerContext::withOwner($store, function () use ($trackedProperty): Experiment {
     /** @var Experiment $experiment */
-    $experiment = Experiment::query()->create([
+    $experiment = app(SaveExperiment::class)->create([
         'tracked_property_id' => $trackedProperty->getKey(),
         'name' => 'Pricing Page Test',
         'slug' => 'pricing-page-test',
@@ -25,7 +25,7 @@ $experiment = OwnerContext::withOwner($store, function () use ($trackedProperty)
         'status' => 'active',
     ]);
 
-    Variant::query()->create([
+    app(SaveVariant::class)->create([
         'experiment_id' => $experiment->getKey(),
         'code' => 'A',
         'name' => 'Control',
@@ -35,7 +35,7 @@ $experiment = OwnerContext::withOwner($store, function () use ($trackedProperty)
         'status' => VariantStatus::Active->value,
     ]);
 
-    Variant::query()->create([
+    app(SaveVariant::class)->create([
         'experiment_id' => $experiment->getKey(),
         'code' => 'B',
         'name' => 'Higher Anchoring',
@@ -136,11 +136,11 @@ Important notes:
 
 The built-in resolver tries, in order:
 
-1. authenticated user → `SignalIdentity.auth_user_type + auth_user_id`, then `external_id`
+1. authenticated user → `SignalIdentity.auth_user_type + auth_user_id` (no `external_id` fallback)
 2. current Signals browser session id (`sig_sid`) or the configured session identifier source
 3. current Signals browser visitor id (`sig_vid`) or the configured anonymous id source
 
-If `signals.integrations.browser.enabled` is on and its middleware has bootstrapped a browser context, you usually do not need any extra request-header wiring for Growth's built-in resolver.
+If `signals.integrations.browser.enabled` is on and its middleware has bootstrapped a browser context, you usually do not need any extra request-header wiring for Growth's built-in resolver. Only identities stamped with the authenticated user's morph type and identifier are attributed; an unstamped or differently typed `external_id` is ignored.
 
 ## Read the current experiment context
 
@@ -199,7 +199,7 @@ For simpler checks, you can also use the helper directly:
 Growth ships a lightweight concern for Laravel Livewire components that want to read the current request context without introducing a hard Livewire dependency into the package itself.
 
 ```php
-use AIArmada\Growth\Livewire\Concerns\InteractsWithExperimentContext;
+use AIArmada\Growth\EntryPoints\Livewire\Concerns\InteractsWithExperimentContext;
 use Livewire\Component;
 
 final class PricingHero extends Component
@@ -363,7 +363,7 @@ php artisan growth:archive-experiments --older-than=30 --dry-run
 php artisan growth:archive-experiments --older-than=60
 ```
 
-The command runs per owner when owner scoping is enabled and sets the experiment status to `archived` with an `archived_at` timestamp.
+The command runs per owner when Signals owner scoping is enabled, discovering owners from tracked properties so it also works when Growth owner scoping is disabled. It sets the experiment status to `archived` with an `archived_at` timestamp and only archives experiments whose tracked property still matches the experiment's owner tuple.
 
 ### Recompute assignments
 
@@ -385,7 +385,8 @@ php artisan growth:recompute-assignments --dry-run
 
 The command repairs assignments with the canonical deterministic allocator used by
 `ResolveExperimentAssignment::variantForSubject()`. It reports changed, quarantined,
-and unchanged counts; it does not pick a random active variant.
+and unchanged counts; it does not pick a random active variant. Missing or inaccessible parent
+experiments are quarantined in assignment metadata instead of aborting the owner batch.
 
 ## Optional Filament admin UI
 
@@ -396,3 +397,8 @@ If `aiarmada/filament-growth` is installed, you get:
 - dashboard widgets for tracked revenue and recent winners
 
 Register the plugin on your panel and keep the Growth package as the underlying domain layer. For the Filament-specific workflow, see the [`filament-growth` docs](../../filament-growth/docs/01-overview.md).
+
+
+## Administrative write boundary
+
+Use `AIArmada\Growth\Actions\SaveExperiment` and `AIArmada\Growth\Actions\SaveVariant` for create, update, delete and lifecycle operations. These actions reload writable records in transactions; application entry points authorize the caller. Concluded and archived experiments cannot be reopened through administrative updates.

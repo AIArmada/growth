@@ -6,7 +6,8 @@ namespace AIArmada\Growth\Actions;
 
 use AIArmada\CommerceSupport\Support\OwnerContext;
 use AIArmada\Growth\Models\Experiment;
-use AIArmada\Growth\Support\ExperimentAssignmentResolver;
+use AIArmada\Growth\Queries\ExperimentAssignmentResolver;
+use AIArmada\Growth\Queries\ScopeSignalQueryToOwner;
 use AIArmada\Growth\Support\ExperimentContextMerger;
 use AIArmada\Signals\Features\Ingestion\Models\TrackedProperty;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -19,6 +20,7 @@ final class ProjectExperimentContextIntoSignalProperties
         private readonly BuildExperimentSignalProperties $buildExperimentSignalProperties,
         private readonly ExperimentAssignmentResolver $assignmentResolver,
         private readonly ExperimentContextMerger $contextMerger,
+        private readonly ScopeSignalQueryToOwner $scopeSignalQueryToOwner,
     ) {}
 
     /**
@@ -68,7 +70,7 @@ final class ProjectExperimentContextIntoSignalProperties
                 'Tracked property is not accessible in the current owner scope.',
             );
 
-            $resolvedTrackedProperty = app(ScopeSignalQueryToOwner::class)
+            $resolvedTrackedProperty = $this->scopeSignalQueryToOwner
                 ->handle(
                     TrackedProperty::query(),
                     $owner,

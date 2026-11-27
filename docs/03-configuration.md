@@ -212,7 +212,7 @@ These keys control which event names the aggregator and enrichment flow care abo
 
 Optional class-string for a custom request subject resolver.
 
-The class must implement `AIArmada\Growth\Contracts\RequestExperimentSubjectResolver`.
+The class must implement `AIArmada\Growth\EntryPoints\Http\RequestExperimentSubjectResolver`.
 
 Leave this as `null` to use the built-in resolver.
 

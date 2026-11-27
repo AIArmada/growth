@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "kind": "package",
+  "layout": "single",
+  "namespace": "AIArmada\\Growth",
+  "sourceDir": "src",
+  "antiSlop": {
+    "banAppImports": true,
+    "banHostGlobalMutations": true,
+    "banSleep": true,
+    "banEnvOutsideConfig": true,
+    "banModelUnguard": true,
+    "banInlineSuppressions": true,
+    "commentHygiene": true
+  },
+  "exceptions": []
+}

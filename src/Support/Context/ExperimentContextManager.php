@@ -7,11 +7,12 @@ namespace AIArmada\Growth\Support\Context;
 use AIArmada\Growth\Models\Assignment;
 use AIArmada\Growth\Models\Experiment;
 use AIArmada\Growth\Models\Variant;
+use AIArmada\Signals\Features\Browser\Api\BrowserPagePropertyContributor;
 use Illuminate\Http\Request;
 use RuntimeException;
 use Throwable;
 
-final class ExperimentContextManager
+final class ExperimentContextManager implements BrowserPagePropertyContributor
 {
     public const string EXPERIMENT_ATTRIBUTE = 'growth.experiment';
 
@@ -108,6 +109,20 @@ final class ExperimentContextManager
     public function toArray(): ?array
     {
         return $this->current()?->toArray();
+    }
+
+    /** @return array<string, mixed> */
+    public function currentPageProperties(): array
+    {
+        if (! (bool) config('growth.integrations.signals.enabled', true)) {
+            return [];
+        }
+
+        $primary = $this->toArray();
+
+        return $primary === null ? [] : array_merge($primary, [
+            'experiment_contexts' => [$primary],
+        ]);
     }
 
     private function request(): ?Request
